@@ -8,7 +8,7 @@ Operational security controls for Railway + Cloudflare production and GitHub CI 
 
 | Name | Type | Used by | Rotation |
 |------|------|---------|----------|
-| `SONAR_TOKEN` | Secret | [`.github/workflows/sonarqube-cloud.yml`](../../.github/workflows/sonarqube-cloud.yml) | Regenerate in SonarQube Cloud → My Account → Security |
+| `SONAR_TOKEN` | Secret | [`.github/workflows/sonarqube-cloud.yml`](../../.github/workflows/sonarqube-cloud.yml) | User/org token with analyze permission ([GitHub Actions setup](https://docs.sonarsource.com/sonarqube-cloud/analyzing-source-code/ci-based-analysis/github-actions-for-sonarcloud)) |
 | `SONAR_ORGANIZATION` | Variable | SonarQube Cloud workflow | Sonar org key (Settings → Organization) |
 | `SONAR_PROJECT_KEY` | Variable | SonarQube Cloud workflow | Project key from SonarQube Cloud project setup |
 | *(none in CI)* | — | Railway only | — |
@@ -47,7 +47,7 @@ Dependabot ([`.github/dependabot.yml`](../../.github/dependabot.yml)) opens week
 | Tool | Workflow | Role |
 |------|----------|------|
 | CodeQL | [`.github/workflows/codeql.yml`](../../.github/workflows/codeql.yml) | GitHub-native SAST (Go) |
-| SonarQube Cloud | [`.github/workflows/sonarqube-cloud.yml`](../../.github/workflows/sonarqube-cloud.yml) | Code quality, security hotspots, coverage |
+| SonarQube Cloud | [`.github/workflows/sonarqube-cloud.yml`](../../.github/workflows/sonarqube-cloud.yml), [`sonar-project.properties`](../../sonar-project.properties) | Code quality, security hotspots, coverage |
 | Dependabot | [`.github/dependabot.yml`](../../.github/dependabot.yml) | Dependency and base-image updates |
 
 Snyk is **not** used in this repository.

@@ -1,3 +1,5 @@
+# SonarQube Cloud via GitHub Actions (Go / SonarScanner CLI)
+# https://docs.sonarsource.com/sonarqube-cloud/analyzing-source-code/ci-based-analysis/github-actions-for-sonarcloud
 name: SonarQube Cloud
 
 on:
@@ -5,6 +7,7 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+    types: [opened, synchronize, reopened]
   schedule:
     - cron: "0 7 * * 1"
 
@@ -17,17 +20,27 @@ jobs:
     name: SonarQube Cloud Scan
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v6
         with:
+          # Full history improves new-code / blame analysis (SonarQube docs)
           fetch-depth: 0
 
-      - uses: actions/setup-go@v5
+      - name: Set up Go
+        uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
           cache-dependency-path: go.sum
 
       - name: Test with coverage
         run: go test -race -coverprofile=coverage.out -covermode=atomic ./...
+
+      - name: Cache SonarQube packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.sonar/cache
+          key: ${{ runner.os }}-sonar
+          restore-keys: ${{ runner.os }}-sonar
 
       - name: Verify SonarQube Cloud configuration
         env:
@@ -39,19 +52,16 @@ jobs:
           test -n "$SONAR_ORGANIZATION" || { echo "SONAR_ORGANIZATION repository variable is required"; exit 1; }
           test -n "$SONAR_PROJECT_KEY" || { echo "SONAR_PROJECT_KEY repository variable is required"; exit 1; }
 
-      - name: SonarQube Cloud scan
+      - name: SonarQube Scan
         uses: SonarSource/sonarqube-scan-action@v7
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         with:
+          projectBaseDir: .
           args: >
             -Dsonar.host.url=https://sonarcloud.io
             -Dsonar.organization=${{ vars.SONAR_ORGANIZATION }}
             -Dsonar.projectKey=${{ vars.SONAR_PROJECT_KEY }}
             "-Dsonar.projectName=discovery-service"
-            -Dsonar.sources=cmd,internal,pkg
-            -Dsonar.tests=.
-            -Dsonar.test.inclusions=**/*_test.go
-            -Dsonar.exclusions=**/openapi/**,**/static/**
-            -Dsonar.go.coverage.reportPaths=coverage.out
-            -Dsonar.sourceEncoding=UTF-8
+            -Dsonar.qualitygate.wait=true
+            -Dsonar.qualitygate.timeout=300

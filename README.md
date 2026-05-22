@@ -93,7 +93,7 @@ Automated gates and edge hardening are defined in:
 
 - **CI:** [`.github/workflows/ci.yml`](.github/workflows/ci.yml) — `go test`, `go vet`, `gofmt`, `golangci-lint`
 - **CodeQL (GHAS):** [`.github/workflows/codeql.yml`](.github/workflows/codeql.yml)
-- **SonarQube Cloud:** [`.github/workflows/sonarqube-cloud.yml`](.github/workflows/sonarqube-cloud.yml) — requires `SONAR_TOKEN`, `SONAR_ORGANIZATION`, `SONAR_PROJECT_KEY`
+- **SonarQube Cloud:** [`.github/workflows/sonarqube-cloud.yml`](.github/workflows/sonarqube-cloud.yml) + [`sonar-project.properties`](sonar-project.properties) — requires `SONAR_TOKEN`, `SONAR_ORGANIZATION`, `SONAR_PROJECT_KEY`
 - **Dependabot:** [`.github/dependabot.yml`](.github/dependabot.yml)
 - **Apache edge:** [`deploy/apache/httpd.conf.template`](deploy/apache/httpd.conf.template) — request limits, security headers, cache policy
 - **Runbook:** [`deploy/railway/SECURITY.md`](deploy/railway/SECURITY.md) — secrets, branch protection, triage, Cloudflare rate limits
