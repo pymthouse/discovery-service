@@ -1,0 +1,46 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: discovery-service-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: discovery
+      POSTGRES_PASSWORD: discovery
+      POSTGRES_DB: discovery
+    # No host port — reachable only as postgres:5432 on the compose network
+    volumes:
+      - discovery_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U discovery -d discovery"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+
+  discovery:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: discovery-service-app
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    env_file:
+      - .env
+    environment:
+      # In-compose DB uses service hostname and internal port 5432
+      DATABASE_URL: postgres://discovery:discovery@postgres:5432/discovery?sslmode=disable
+      HTTP_ADDR: ":8088"
+      REFRESH_ON_STARTUP: "true"
+    ports:
+      - "8088:8088"
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:8088/healthz"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+volumes:
+  discovery_pgdata:

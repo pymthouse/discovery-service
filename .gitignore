@@ -1,0 +1,23 @@
+# Secrets and local config
+.env
+.env.*
+!.env.example
+
+# Build outputs
+bin/
+discoveryd
+/tmp/
+
+# Go
+*.test
+*.out
+coverage.out
+
+# IDE / OS
+.vscode/
+.idea/
+*.swp
+.DS_Store
+
+# Docker (local overrides only if you add secrets there)
+docker-compose.override.yml

@@ -1,0 +1,6 @@
+# Optional overlay: expose Postgres to the host for `go run ./cmd/discoveryd` on your machine.
+# Usage: docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d postgres
+services:
+  postgres:
+    ports:
+      - "5433:5432"

@@ -1,0 +1,11 @@
+.git
+.env
+.env.*
+!.env.example
+bin/
+tmp/
+*.md
+.vscode
+.cursor
+fixtures/
+**/*_test.go
