@@ -14,7 +14,7 @@ const maxCandidateRows = 1000
 
 // Service evaluates client-driven queries over the materialized dataset.
 type Service struct {
-	store *db.Store
+	store   *db.Store
 	maxTopN int
 }
 

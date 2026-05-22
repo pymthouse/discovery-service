@@ -16,12 +16,12 @@ type Config struct {
 
 	CronSecret string
 
-	RefreshInterval time.Duration
+	RefreshInterval    time.Duration
 	MembershipStrategy string
 
-	ClickHouseURL      string
-	ClickHouseUser     string
-	ClickHousePassword string
+	ClickHouseURL        string
+	ClickHouseUser       string
+	ClickHousePassword   string
 	ClickHouseGatewayURL string
 
 	SubgraphURL string

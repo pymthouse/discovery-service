@@ -96,10 +96,12 @@ func (s *Server) capabilities(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
+	w.Header().Set("Cache-Control", "public, max-age=300")
 	writeJSON(w, http.StatusOK, map[string]any{"capabilities": caps})
 }
 
 func (s *Server) discoveryQuery(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Cache-Control", "no-store, no-cache, must-revalidate, private")
 	var req discotypes.QueryRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid JSON body")
@@ -202,6 +204,7 @@ func appendUnique(slice []string, v string) []string {
 }
 
 func (s *Server) datasetRefresh(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Cache-Control", "no-store, no-cache, must-revalidate, private")
 	if s.cfg.CronSecret != "" {
 		auth := r.Header.Get("Authorization")
 		secret := r.Header.Get("X-Cron-Secret")

@@ -87,8 +87,23 @@ DISCOVERY_SERVICE_URL=http://localhost:8088
 
 Dataset refresh and plan evaluation then delegate to this service.
 
+## Security
+
+Automated gates and edge hardening are defined in:
+
+- **CI:** [`.github/workflows/ci.yml`](.github/workflows/ci.yml) — `go test`, `go vet`, `gofmt`, `golangci-lint`
+- **CodeQL (GHAS):** [`.github/workflows/codeql.yml`](.github/workflows/codeql.yml)
+- **SonarQube Cloud:** [`.github/workflows/sonarqube-cloud.yml`](.github/workflows/sonarqube-cloud.yml) — requires `SONAR_TOKEN`, `SONAR_ORGANIZATION`, `SONAR_PROJECT_KEY`
+- **Dependabot:** [`.github/dependabot.yml`](.github/dependabot.yml)
+- **Apache edge:** [`deploy/apache/httpd.conf.template`](deploy/apache/httpd.conf.template) — request limits, security headers, cache policy
+- **Runbook:** [`deploy/railway/SECURITY.md`](deploy/railway/SECURITY.md) — secrets, branch protection, triage, Cloudflare rate limits
+
+Enable **Code scanning** and required status checks on `main` before production rollout (see runbook).
+
 ## Tests
 
 ```bash
 go test ./...
+gofmt -l .    # should print nothing
+go vet ./...
 ```

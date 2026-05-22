@@ -321,11 +321,11 @@ type QueryFilters struct {
 
 // DatasetStats for health/freshness endpoints.
 type DatasetStats struct {
-	Populated          bool
-	RefreshedAt        *time.Time
-	RefreshedBy        string
-	TotalRows          int
-	CapabilityCount    int
+	Populated       bool
+	RefreshedAt     *time.Time
+	RefreshedBy     string
+	TotalRows       int
+	CapabilityCount int
 }
 
 // GetStats returns dataset population stats.
