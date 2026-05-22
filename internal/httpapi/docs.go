@@ -1,8 +1,10 @@
 package httpapi
 
 import (
-	_ "embed"
 	"net/http"
+
+	// Import embed so the //go:embed directives below are compiled.
+	_ "embed"
 )
 
 //go:embed openapi/openapi.yaml

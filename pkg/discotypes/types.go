@@ -45,18 +45,18 @@ type QueryRequest struct {
 
 // QueryResponse is POST /v1/discovery/query response.
 type QueryResponse struct {
-	Results        map[string][]DatasetRow `json:"results"`
-	DatasetVersion int64                   `json:"datasetVersion"`
-	QueryTimeMs    int64                   `json:"queryTimeMs"`
-	SourceFreshness *FreshnessMeta         `json:"sourceFreshness,omitempty"`
+	Results         map[string][]DatasetRow `json:"results"`
+	DatasetVersion  int64                   `json:"datasetVersion"`
+	QueryTimeMs     int64                   `json:"queryTimeMs"`
+	SourceFreshness *FreshnessMeta          `json:"sourceFreshness,omitempty"`
 }
 
 // FreshnessMeta describes materialized dataset age.
 type FreshnessMeta struct {
-	RefreshedAt   *int64 `json:"refreshedAt,omitempty"`
-	RefreshedBy   string `json:"refreshedBy,omitempty"`
-	AgeMs         int64  `json:"ageMs"`
-	CapabilityCount int  `json:"capabilityCount"`
+	RefreshedAt     *int64 `json:"refreshedAt,omitempty"`
+	RefreshedBy     string `json:"refreshedBy,omitempty"`
+	AgeMs           int64  `json:"ageMs"`
+	CapabilityCount int    `json:"capabilityCount"`
 }
 
 // WebhookOrchestrator matches go-livepeer remote signer / webhook discovery JSON.
@@ -68,8 +68,8 @@ type WebhookOrchestrator struct {
 
 // RefreshResult is returned from dataset refresh.
 type RefreshResult struct {
-	Refreshed        bool   `json:"refreshed"`
-	Capabilities     int    `json:"capabilities"`
-	Orchestrators    int    `json:"orchestrators"`
-	DurationMs       int64  `json:"durationMs"`
+	Refreshed     bool  `json:"refreshed"`
+	Capabilities  int   `json:"capabilities"`
+	Orchestrators int   `json:"orchestrators"`
+	DurationMs    int64 `json:"durationMs"`
 }

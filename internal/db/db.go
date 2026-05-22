@@ -8,6 +8,7 @@ import (
 	"sort"
 	"time"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -132,15 +133,14 @@ type FlatRow struct {
 
 const batchSize = 500
 
-// WriteDataset replaces the full materialized dataset.
-func (s *Store) WriteDataset(ctx context.Context, capabilities map[string][]FlatRow, refreshedBy string) (totalRows int, totalCaps int, err error) {
+func flattenCapabilityRows(capabilities map[string][]FlatRow) ([]FlatRow, []string) {
 	capNames := make([]string, 0, len(capabilities))
 	for cap := range capabilities {
 		capNames = append(capNames, cap)
 	}
 	sort.Strings(capNames)
 
-	var flat []FlatRow
+	flat := make([]FlatRow, 0)
 	for _, cap := range capNames {
 		for _, r := range capabilities[cap] {
 			if r.OrchURI == "" {
@@ -150,17 +150,10 @@ func (s *Store) WriteDataset(ctx context.Context, capabilities map[string][]Flat
 			flat = append(flat, r)
 		}
 	}
+	return flat, capNames
+}
 
-	tx, err := s.pool.Begin(ctx)
-	if err != nil {
-		return 0, 0, err
-	}
-	defer tx.Rollback(ctx)
-
-	if _, err := tx.Exec(ctx, `DELETE FROM leaderboard_dataset_rows`); err != nil {
-		return 0, 0, err
-	}
-
+func (s *Store) insertFlatRows(ctx context.Context, tx pgx.Tx, flat []FlatRow) error {
 	for i := 0; i < len(flat); i += batchSize {
 		end := i + batchSize
 		if end > len(flat) {
@@ -176,13 +169,16 @@ func (s *Store) WriteDataset(ctx context.Context, capabilities map[string][]Flat
 				r.PricePerUnit, r.BestLatMs, r.AvgLatMs, r.SwapRatio, r.AvgAvail, r.Score,
 			)
 			if err != nil {
-				return 0, 0, err
+				return err
 			}
 		}
 	}
+	return nil
+}
 
+func (s *Store) updateDatasetConfig(ctx context.Context, tx pgx.Tx, refreshedBy string, capNames []string) error {
 	capsJSON, _ := json.Marshal(capNames)
-	_, err = tx.Exec(ctx, `
+	_, err := tx.Exec(ctx, `
 		INSERT INTO leaderboard_config (id, last_refreshed_at, last_refreshed_by, known_capabilities)
 		VALUES ('singleton', now(), $1, $2::jsonb)
 		ON CONFLICT (id) DO UPDATE SET
@@ -191,10 +187,32 @@ func (s *Store) WriteDataset(ctx context.Context, capabilities map[string][]Flat
 			known_capabilities = EXCLUDED.known_capabilities`,
 		refreshedBy, string(capsJSON),
 	)
+	return err
+}
+
+// WriteDataset replaces the full materialized dataset.
+func (s *Store) WriteDataset(ctx context.Context, capabilities map[string][]FlatRow, refreshedBy string) (totalRows int, totalCaps int, err error) {
+	flat, capNames := flattenCapabilityRows(capabilities)
+
+	tx, err := s.pool.Begin(ctx)
 	if err != nil {
 		return 0, 0, err
 	}
+	defer func() {
+		if err := tx.Rollback(ctx); err != nil && err != pgx.ErrTxClosed {
+			return
+		}
+	}()
 
+	if _, err := tx.Exec(ctx, `DELETE FROM leaderboard_dataset_rows`); err != nil {
+		return 0, 0, err
+	}
+	if err := s.insertFlatRows(ctx, tx, flat); err != nil {
+		return 0, 0, err
+	}
+	if err := s.updateDatasetConfig(ctx, tx, refreshedBy, capNames); err != nil {
+		return 0, 0, err
+	}
 	if err := tx.Commit(ctx); err != nil {
 		return 0, 0, err
 	}
@@ -321,11 +339,11 @@ type QueryFilters struct {
 
 // DatasetStats for health/freshness endpoints.
 type DatasetStats struct {
-	Populated          bool
-	RefreshedAt        *time.Time
-	RefreshedBy        string
-	TotalRows          int
-	CapabilityCount    int
+	Populated       bool
+	RefreshedAt     *time.Time
+	RefreshedBy     string
+	TotalRows       int
+	CapabilityCount int
 }
 
 // GetStats returns dataset population stats.

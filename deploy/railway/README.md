@@ -199,6 +199,13 @@ curl -s -X POST "$BASE/v1/discovery/query" \
 
 # Webhook raw
 curl -s "$BASE/v1/discovery/raw?caps=streamdiffusion-sdxl" | jq '.[0:3]'
+
+# Security headers and cache policy (Apache edge)
+curl -sI "$BASE/docs" | grep -iE 'x-content-type|x-frame|cache-control'
+curl -sI "$BASE/v1/discovery/capabilities" | grep -i cache-control
+curl -sI -X POST "$BASE/v1/discovery/query" \
+  -H "Content-Type: application/json" \
+  -d '{"capabilities":["streamdiffusion-sdxl"],"topN":1}' | grep -i cache-control
 ```
 
 ### HA replica kill test
@@ -212,11 +219,16 @@ curl -s "$BASE/v1/discovery/raw?caps=streamdiffusion-sdxl" | jq '.[0:3]'
 
 ## 5. Security checklist
 
+Full runbook: **[SECURITY.md](SECURITY.md)** (secrets rotation, GHAS/SonarQube triage, Cloudflare rate limits, cache policy, emergency controls).
+
 - [ ] `CRON_SECRET` is random and only on Railway secrets (never in git)
 - [ ] `discoveryd` has **no** public URL
 - [ ] Neon uses `sslmode=require`
 - [ ] Railway variables marked as secrets for passwords
-- [ ] Cloudflare proxy + WAF optional
+- [ ] Cloudflare proxy + WAF + rate limits configured (see SECURITY.md)
+- [ ] GitHub: `SONAR_TOKEN` + `SONAR_ORGANIZATION` + `SONAR_PROJECT_KEY`; branch protection requires **CI**, **CodeQL**, **SonarQube Cloud**
+- [ ] GitHub: Code scanning (CodeQL) enabled; Dependabot active
+- [ ] Apache edge headers and cache policy verified (`curl -sI` on `/docs`, `/v1/discovery/capabilities`)
 - [ ] Read endpoints are public by design; add API keys later if needed
 
 ---

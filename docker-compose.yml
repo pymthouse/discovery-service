@@ -4,14 +4,14 @@ services:
     container_name: discovery-service-postgres
     restart: unless-stopped
     environment:
-      POSTGRES_USER: discovery
-      POSTGRES_PASSWORD: discovery
-      POSTGRES_DB: discovery
+      POSTGRES_USER: ${DISCOVERY_PG_USER:-discovery}
+      POSTGRES_PASSWORD: ${DISCOVERY_PG_PASSWORD:?set DISCOVERY_PG_PASSWORD in .env}
+      POSTGRES_DB: ${DISCOVERY_PG_DB:-discovery}
     # No host port — reachable only as postgres:5432 on the compose network
     volumes:
       - discovery_pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U discovery -d discovery"]
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -29,8 +29,11 @@ services:
     env_file:
       - .env
     environment:
-      # In-compose DB uses service hostname and internal port 5432
-      DATABASE_URL: postgres://discovery:discovery@postgres:5432/discovery?sslmode=disable
+      # Build DATABASE_URL inside the app from discrete DB settings to avoid
+      # placing password-bearing connection strings in compose.
+      DATABASE_URL: ""
+      DISCOVERY_PG_HOST: postgres
+      DISCOVERY_PG_PORT: "5432"
       HTTP_ADDR: ":8088"
       REFRESH_ON_STARTUP: "true"
     ports:

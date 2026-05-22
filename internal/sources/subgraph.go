@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
@@ -64,15 +65,21 @@ func (a *SubgraphAdapter) FetchAll(ctx context.Context) (FetchResult, error) {
 	}, nil
 }
 
+type subgraphTranscoderBlock struct {
+	Transcoders []subgraphTranscoder `json:"transcoders"`
+}
+
+type subgraphDataPayload struct {
+	Data        subgraphTranscoderBlock `json:"data"`
+	Transcoders []subgraphTranscoder    `json:"transcoders"`
+}
+
+type subgraphResponseEnvelope struct {
+	Data subgraphDataPayload `json:"data"`
+}
+
 func parseSubgraphTranscoders(body []byte) ([]NormalizedOrch, error) {
-	var envelope struct {
-		Data struct {
-			Data struct {
-				Transcoders []subgraphTranscoder `json:"transcoders"`
-			} `json:"data"`
-			Transcoders []subgraphTranscoder `json:"transcoders"`
-		} `json:"data"`
-	}
+	var envelope subgraphResponseEnvelope
 	if err := json.Unmarshal(body, &envelope); err != nil {
 		return nil, err
 	}
@@ -105,7 +112,6 @@ type subgraphTranscoder struct {
 }
 
 func parseInt(s string) int {
-	var n int
-	fmt.Sscanf(s, "%d", &n)
+	n, _ := strconv.Atoi(s)
 	return n
 }

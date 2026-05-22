@@ -1,9 +1,10 @@
-FROM httpd:2.4-alpine
+FROM httpd:2.4-alpine@sha256:0136c2d4462f3b8ecc92bea70efdfef4d06523999ae8d7aa533969dea6db4576
 
 RUN apk add --no-cache gettext
 
-COPY httpd.conf.template /usr/local/apache2/conf/httpd.conf.template
-COPY entrypoint.sh /entrypoint.sh
+# Build context is repo root (Railway / CI).
+COPY deploy/apache/httpd.conf.template /usr/local/apache2/conf/httpd.conf.template
+COPY deploy/apache/entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 
 # Railway sets PORT; default 8080 for local smoke tests

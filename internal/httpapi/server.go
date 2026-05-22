@@ -17,6 +17,8 @@ import (
 	"github.com/livepeer/discovery-service/pkg/discotypes"
 )
 
+const headerCacheControl = "Cache-Control"
+
 // Server is the HTTP API for discovery-service.
 type Server struct {
 	cfg     config.Config
@@ -96,10 +98,12 @@ func (s *Server) capabilities(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
+	w.Header().Set(headerCacheControl, "public, max-age=300")
 	writeJSON(w, http.StatusOK, map[string]any{"capabilities": caps})
 }
 
 func (s *Server) discoveryQuery(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set(headerCacheControl, "no-store, private")
 	var req discotypes.QueryRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid JSON body")
@@ -143,44 +147,61 @@ func (s *Server) discoveryQuery(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) discoveryRaw(w http.ResponseWriter, r *http.Request) {
+	caps, err := rawCapabilityNames(r, s.store)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	byAddr := mergeRawOrchestrators(r.Context(), s.store, caps)
+	out := webhookOrchestratorsFromRaw(byAddr)
+	writeJSON(w, http.StatusOK, out)
+}
+
+type rawOrchEntry struct {
+	address string
+	score   float32
+	caps    []string
+}
+
+func rawCapabilityNames(r *http.Request, store *db.Store) ([]string, error) {
 	caps := r.URL.Query()["caps"]
 	if len(caps) == 0 {
 		caps = r.URL.Query()["capability"]
 	}
-	if len(caps) == 0 {
-		all, err := s.store.ListCapabilities(r.Context())
-		if err != nil {
-			writeError(w, http.StatusInternalServerError, err.Error())
-			return
-		}
-		caps = all
+	if len(caps) > 0 {
+		return caps, nil
 	}
+	return store.ListCapabilities(r.Context())
+}
 
-	type orchEntry struct {
-		address string
-		score   float32
-		caps    []string
-	}
-	byAddr := make(map[string]*orchEntry)
-
+func mergeRawOrchestrators(ctx context.Context, store *db.Store, caps []string) map[string]*rawOrchEntry {
+	byAddr := make(map[string]*rawOrchEntry)
 	for _, cap := range caps {
-		rows, err := s.store.QueryRows(r.Context(), cap, db.QueryFilters{}, 1000)
+		rows, err := store.QueryRows(ctx, cap, db.QueryFilters{}, 1000)
 		if err != nil {
 			continue
 		}
 		for _, row := range rows {
-			e, ok := byAddr[row.OrchURI]
-			if !ok {
-				e = &orchEntry{address: row.OrchURI, score: float32(row.Score)}
-				if e.score == 0 {
-					e.score = 1
-				}
-				byAddr[row.OrchURI] = e
-			}
-			e.caps = appendUnique(e.caps, cap)
+			recordRawOrch(byAddr, row, cap)
 		}
 	}
+	return byAddr
+}
 
+func recordRawOrch(byAddr map[string]*rawOrchEntry, row db.FlatRow, cap string) {
+	e, ok := byAddr[row.OrchURI]
+	if !ok {
+		score := float32(row.Score)
+		if score == 0 {
+			score = 1
+		}
+		e = &rawOrchEntry{address: row.OrchURI, score: score}
+		byAddr[row.OrchURI] = e
+	}
+	e.caps = appendUnique(e.caps, cap)
+}
+
+func webhookOrchestratorsFromRaw(byAddr map[string]*rawOrchEntry) []discotypes.WebhookOrchestrator {
 	out := make([]discotypes.WebhookOrchestrator, 0, len(byAddr))
 	for _, e := range byAddr {
 		out = append(out, discotypes.WebhookOrchestrator{
@@ -189,7 +210,7 @@ func (s *Server) discoveryRaw(w http.ResponseWriter, r *http.Request) {
 			Capabilities: e.caps,
 		})
 	}
-	writeJSON(w, http.StatusOK, out)
+	return out
 }
 
 func appendUnique(slice []string, v string) []string {
@@ -202,6 +223,7 @@ func appendUnique(slice []string, v string) []string {
 }
 
 func (s *Server) datasetRefresh(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set(headerCacheControl, "no-store, private")
 	if s.cfg.CronSecret != "" {
 		auth := r.Header.Get("Authorization")
 		secret := r.Header.Get("X-Cron-Secret")

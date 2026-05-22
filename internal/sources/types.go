@@ -9,11 +9,11 @@ import (
 type Kind string
 
 const (
-	KindSubgraph      Kind = "livepeer-subgraph"
-	KindClickHouse    Kind = "clickhouse-query"
-	KindNaapDiscover  Kind = "naap-discover"
-	KindNaapPricing   Kind = "naap-pricing"
-	KindRemoteSigner  Kind = "remote-signer"
+	KindSubgraph     Kind = "livepeer-subgraph"
+	KindClickHouse   Kind = "clickhouse-query"
+	KindNaapDiscover Kind = "naap-discover"
+	KindNaapPricing  Kind = "naap-pricing"
+	KindRemoteSigner Kind = "remote-signer"
 )
 
 // AllKinds is the default registration order.
@@ -40,23 +40,23 @@ type Stats struct {
 
 // NormalizedOrch is the intermediate row shape before resolver merge.
 type NormalizedOrch struct {
-	EthAddress          string
-	OrchURI             string
-	Capabilities        []string
-	Score               float64
-	RecentWork          bool
-	LastSeenMs          int64
-	GPUName             string
-	GPUGb               float64
-	Avail               float64
-	TotalCap            float64
-	PricePerUnit        float64
-	BestLatMs           *float64
-	AvgLatMs            *float64
-	SwapRatio           *float64
-	AvgAvail            *float64
-	ActivationRound     int
-	DeactivationRound   int
+	EthAddress        string
+	OrchURI           string
+	Capabilities      []string
+	Score             float64
+	RecentWork        bool
+	LastSeenMs        int64
+	GPUName           string
+	GPUGb             float64
+	Avail             float64
+	TotalCap          float64
+	PricePerUnit      float64
+	BestLatMs         *float64
+	AvgLatMs          *float64
+	SwapRatio         *float64
+	AvgAvail          *float64
+	ActivationRound   int
+	DeactivationRound int
 }
 
 // FetchResult is returned by each source adapter.

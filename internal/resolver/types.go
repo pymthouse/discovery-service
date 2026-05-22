@@ -26,17 +26,17 @@ type SourceConfig struct {
 
 // Config drives resolver behavior.
 type Config struct {
-	Sources             []SourceConfig
-	FieldPriority       map[string][]sources.Kind
-	MembershipStrategy  string
+	Sources            []SourceConfig
+	FieldPriority      map[string][]sources.Kind
+	MembershipStrategy string
 }
 
 // ConflictEntry records a field-level merge conflict.
 type ConflictEntry struct {
-	OrchKey string         `json:"orchKey"`
-	Field   string         `json:"field"`
-	Winner  sources.Kind   `json:"winner"`
-	Losers  []LoserEntry   `json:"losers"`
+	OrchKey string       `json:"orchKey"`
+	Field   string       `json:"field"`
+	Winner  sources.Kind `json:"winner"`
+	Losers  []LoserEntry `json:"losers"`
 }
 
 // LoserEntry is a conflicting source value.
@@ -54,13 +54,13 @@ type DroppedEntry struct {
 
 // AuditEntry summarizes a resolution run.
 type AuditEntry struct {
-	MembershipSource   string            `json:"membershipSource"`
-	TotalOrchestrators int               `json:"totalOrchestrators"`
-	TotalCapabilities  int               `json:"totalCapabilities"`
-	Conflicts          []ConflictEntry   `json:"conflicts"`
-	Dropped            []DroppedEntry    `json:"dropped"`
-	Warnings           []string          `json:"warnings"`
-	PerSourceCounts    map[string]int    `json:"perSourceCounts"`
+	MembershipSource   string          `json:"membershipSource"`
+	TotalOrchestrators int             `json:"totalOrchestrators"`
+	TotalCapabilities  int             `json:"totalCapabilities"`
+	Conflicts          []ConflictEntry `json:"conflicts"`
+	Dropped            []DroppedEntry  `json:"dropped"`
+	Warnings           []string        `json:"warnings"`
+	PerSourceCounts    map[string]int  `json:"perSourceCounts"`
 }
 
 // Result is the output of Resolve.

@@ -14,7 +14,7 @@ const maxCandidateRows = 1000
 
 // Service evaluates client-driven queries over the materialized dataset.
 type Service struct {
-	store *db.Store
+	store   *db.Store
 	maxTopN int
 }
 
@@ -28,25 +28,8 @@ func New(store *db.Store, maxTopN int) *Service {
 
 // Execute runs POST /v1/discovery/query logic.
 func (s *Service) Execute(ctx context.Context, req discotypes.QueryRequest) (discotypes.QueryResponse, error) {
-	topN := defaultTopN
-	if req.TopN != nil {
-		topN = *req.TopN
-		if topN < 1 {
-			topN = 1
-		}
-		if topN > s.maxTopN {
-			topN = s.maxTopN
-		}
-	}
-
-	sqlFilters := db.QueryFilters{}
-	if req.Filters != nil {
-		sqlFilters.GPURamGbMin = req.Filters.GPURamGbMin
-		sqlFilters.GPURamGbMax = req.Filters.GPURamGbMax
-		sqlFilters.PriceMax = req.Filters.PriceMax
-		sqlFilters.MaxAvgLatencyMs = req.Filters.MaxAvgLatencyMs
-		sqlFilters.MaxSwapRatio = req.Filters.MaxSwapRatio
-	}
+	topN := clampTopN(req.TopN, s.maxTopN)
+	sqlFilters := filtersFromRequest(req)
 
 	results := make(map[string][]discotypes.DatasetRow)
 	for _, cap := range req.Capabilities {
@@ -54,34 +37,79 @@ func (s *Service) Execute(ctx context.Context, req discotypes.QueryRequest) (dis
 		if err != nil {
 			return discotypes.QueryResponse{}, err
 		}
-		scored := evaluateRows(rows, req)
-		if req.SLAMinScore != nil {
-			min := *req.SLAMinScore
-			filtered := scored[:0]
-			for _, r := range scored {
-				if r.SLAScore != nil && *r.SLAScore >= min {
-					filtered = append(filtered, r)
-				}
-			}
-			scored = filtered
-		}
-		sortRows(scored, req.SortBy)
-		if len(scored) > topN {
-			scored = scored[:topN]
-		}
-		results[cap] = scored
+		results[cap] = finalizeCapabilityRows(evaluateRows(rows, req), req, topN)
 	}
 
-	meta, _ := s.store.GetConfig(ctx)
-	resp := discotypes.QueryResponse{Results: results}
-	if meta.LastRefreshedAt != nil {
-		age := meta.LastRefreshedAt.UnixMilli()
-		resp.DatasetVersion = meta.DatasetVersion
-		resp.SourceFreshness = &discotypes.FreshnessMeta{
-			RefreshedAt:     &age,
-			RefreshedBy:     meta.LastRefreshedBy,
-			CapabilityCount: len(meta.KnownCapabilities),
+	return attachFreshness(s.store, ctx, discotypes.QueryResponse{Results: results})
+}
+
+func clampTopN(requested *int, maxTopN int) int {
+	topN := defaultTopN
+	if requested == nil {
+		return topN
+	}
+	topN = *requested
+	if topN < 1 {
+		return 1
+	}
+	if topN > maxTopN {
+		return maxTopN
+	}
+	return topN
+}
+
+func filtersFromRequest(req discotypes.QueryRequest) db.QueryFilters {
+	if req.Filters == nil {
+		return db.QueryFilters{}
+	}
+	return db.QueryFilters{
+		GPURamGbMin:     req.Filters.GPURamGbMin,
+		GPURamGbMax:     req.Filters.GPURamGbMax,
+		PriceMax:        req.Filters.PriceMax,
+		MaxAvgLatencyMs: req.Filters.MaxAvgLatencyMs,
+		MaxSwapRatio:    req.Filters.MaxSwapRatio,
+	}
+}
+
+func finalizeCapabilityRows(
+	scored []discotypes.DatasetRow,
+	req discotypes.QueryRequest,
+	topN int,
+) []discotypes.DatasetRow {
+	if req.SLAMinScore != nil {
+		scored = filterByMinSLA(scored, *req.SLAMinScore)
+	}
+	sortRows(scored, req.SortBy)
+	if len(scored) > topN {
+		return scored[:topN]
+	}
+	return scored
+}
+
+func filterByMinSLA(rows []discotypes.DatasetRow, min float64) []discotypes.DatasetRow {
+	filtered := rows[:0]
+	for _, r := range rows {
+		if r.SLAScore != nil && *r.SLAScore >= min {
+			filtered = append(filtered, r)
 		}
+	}
+	return filtered
+}
+
+func attachFreshness(store *db.Store, ctx context.Context, resp discotypes.QueryResponse) (discotypes.QueryResponse, error) {
+	meta, err := store.GetConfig(ctx)
+	if err != nil {
+		return resp, err
+	}
+	if meta.LastRefreshedAt == nil {
+		return resp, nil
+	}
+	age := meta.LastRefreshedAt.UnixMilli()
+	resp.DatasetVersion = meta.DatasetVersion
+	resp.SourceFreshness = &discotypes.FreshnessMeta{
+		RefreshedAt:     &age,
+		RefreshedBy:     meta.LastRefreshedBy,
+		CapabilityCount: len(meta.KnownCapabilities),
 	}
 	return resp, nil
 }
@@ -138,23 +166,28 @@ func normalizeWeights(w *discotypes.SLAWeights) weights {
 	if w == nil {
 		return def
 	}
-	lat := 0.4
-	swap := 0.3
-	price := 0.3
-	if w.Latency != nil {
-		lat = *w.Latency
+
+	raw := weights{
+		latency:  valueOrDefault(w.Latency, def.latency),
+		swapRate: valueOrDefault(w.SwapRate, def.swapRate),
+		price:    valueOrDefault(w.Price, def.price),
 	}
-	if w.SwapRate != nil {
-		swap = *w.SwapRate
-	}
-	if w.Price != nil {
-		price = *w.Price
-	}
-	sum := lat + swap + price
+	sum := raw.latency + raw.swapRate + raw.price
 	if sum == 0 {
 		return def
 	}
-	return weights{latency: lat / sum, swapRate: swap / sum, price: price / sum}
+	return weights{
+		latency:  raw.latency / sum,
+		swapRate: raw.swapRate / sum,
+		price:    raw.price / sum,
+	}
+}
+
+func valueOrDefault(value *float64, fallback float64) float64 {
+	if value == nil {
+		return fallback
+	}
+	return *value
 }
 
 type minMax struct {
@@ -170,30 +203,31 @@ func computeMinMax(rows []db.FlatRow) minMax {
 		minPrice: math.Inf(1), maxPrice: math.Inf(-1),
 	}
 	for _, r := range rows {
-		if r.BestLatMs != nil {
-			if *r.BestLatMs < mm.minLat {
-				mm.minLat = *r.BestLatMs
-			}
-			if *r.BestLatMs > mm.maxLat {
-				mm.maxLat = *r.BestLatMs
-			}
-		}
-		if r.SwapRatio != nil {
-			if *r.SwapRatio < mm.minSwap {
-				mm.minSwap = *r.SwapRatio
-			}
-			if *r.SwapRatio > mm.maxSwap {
-				mm.maxSwap = *r.SwapRatio
-			}
-		}
-		if r.PricePerUnit < mm.minPrice {
-			mm.minPrice = r.PricePerUnit
-		}
-		if r.PricePerUnit > mm.maxPrice {
-			mm.maxPrice = r.PricePerUnit
-		}
+		applyRowMinMax(&mm, r)
 	}
 	return mm
+}
+
+func applyRowMinMax(mm *minMax, r db.FlatRow) {
+	updateOptionalMinMax(r.BestLatMs, &mm.minLat, &mm.maxLat)
+	updateOptionalMinMax(r.SwapRatio, &mm.minSwap, &mm.maxSwap)
+	updateMinMax(r.PricePerUnit, &mm.minPrice, &mm.maxPrice)
+}
+
+func updateOptionalMinMax(value *float64, min *float64, max *float64) {
+	if value == nil {
+		return
+	}
+	updateMinMax(*value, min, max)
+}
+
+func updateMinMax(value float64, min *float64, max *float64) {
+	if value < *min {
+		*min = value
+	}
+	if value > *max {
+		*max = value
+	}
 }
 
 func norm(value *float64, min, max float64) float64 {
@@ -217,45 +251,55 @@ func computeSLAScore(r db.FlatRow, w weights, mm minMax) float64 {
 func sortRows(rows []discotypes.DatasetRow, sortBy string) {
 	switch sortBy {
 	case "latency":
-		sort.Slice(rows, func(i, j int) bool {
-			a, b := rows[i].BestLatMs, rows[j].BestLatMs
-			if a == nil {
-				return false
-			}
-			if b == nil {
-				return true
-			}
-			return *a < *b
-		})
+		sort.Slice(rows, func(i, j int) bool { return lessByLatency(i, j, rows) })
 	case "price":
-		sort.Slice(rows, func(i, j int) bool {
-			return rows[i].PricePerUnit < rows[j].PricePerUnit
-		})
+		sort.Slice(rows, func(i, j int) bool { return lessByPrice(i, j, rows) })
 	case "swapRate":
-		sort.Slice(rows, func(i, j int) bool {
-			a, b := rows[i].SwapRatio, rows[j].SwapRatio
-			if a == nil {
-				return false
-			}
-			if b == nil {
-				return true
-			}
-			return *a < *b
-		})
+		sort.Slice(rows, func(i, j int) bool { return lessBySwapRate(i, j, rows) })
 	case "avail":
-		sort.Slice(rows, func(i, j int) bool {
-			return rows[i].Avail > rows[j].Avail
-		})
+		sort.Slice(rows, func(i, j int) bool { return lessByAvail(i, j, rows) })
 	case "slaScore", "":
-		sort.Slice(rows, func(i, j int) bool {
-			a, b := 0.0, 0.0
-			if rows[i].SLAScore != nil {
-				a = *rows[i].SLAScore
-			}
-			if rows[j].SLAScore != nil {
-				b = *rows[j].SLAScore
-			}
-			return a > b
-		})
+		sort.Slice(rows, func(i, j int) bool { return lessBySLAScore(i, j, rows) })
 	}
+}
+
+func lessByLatency(i, j int, rows []discotypes.DatasetRow) bool {
+	a, b := rows[i].BestLatMs, rows[j].BestLatMs
+	if a == nil {
+		return false
+	}
+	if b == nil {
+		return true
+	}
+	return *a < *b
+}
+
+func lessByPrice(i, j int, rows []discotypes.DatasetRow) bool {
+	return rows[i].PricePerUnit < rows[j].PricePerUnit
+}
+
+func lessBySwapRate(i, j int, rows []discotypes.DatasetRow) bool {
+	a, b := rows[i].SwapRatio, rows[j].SwapRatio
+	if a == nil {
+		return false
+	}
+	if b == nil {
+		return true
+	}
+	return *a < *b
+}
+
+func lessByAvail(i, j int, rows []discotypes.DatasetRow) bool {
+	return rows[i].Avail > rows[j].Avail
+}
+
+func lessBySLAScore(i, j int, rows []discotypes.DatasetRow) bool {
+	a, b := 0.0, 0.0
+	if rows[i].SLAScore != nil {
+		a = *rows[i].SLAScore
+	}
+	if rows[j].SLAScore != nil {
+		b = *rows[j].SLAScore
+	}
+	return a > b
 }
