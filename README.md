@@ -45,7 +45,7 @@ make compose-up
 | API (`discovery`) | http://localhost:8088 |
 | Postgres | internal only (`postgres:5432` on compose network) |
 
-`DATABASE_URL` in the `discovery` container is set by compose (`@postgres:5432`). Your `.env` still supplies other keys via `env_file`.
+For full compose, the `discovery` container clears `DATABASE_URL` and builds the internal Postgres connection from `DISCOVERY_PG_*` settings (`postgres:5432`). Your `.env` still supplies the password and other keys via `env_file`.
 
 ```bash
 curl http://localhost:8088/healthz

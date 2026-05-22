@@ -5,7 +5,7 @@
 
 # Build outputs
 bin/
-discoveryd
+/discoveryd
 /tmp/
 
 # Go

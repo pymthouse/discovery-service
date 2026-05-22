@@ -1,6 +1,8 @@
 package config
 
 import (
+	"net"
+	"net/url"
 	"os"
 	"strconv"
 	"strings"
@@ -39,10 +41,15 @@ type Config struct {
 // Load reads configuration from environment variables.
 func Load() Config {
 	refreshMs := envInt64("LEADERBOARD_REFRESH_INTERVAL_MS", 60_000)
-	return Config{
-		HTTPAddr: env("HTTP_ADDR", ":8088"),
+	databaseURL := env("DATABASE_URL", "")
+	if databaseURL == "" {
+		databaseURL = postgresURLFromEnv()
+	}
 
-		DatabaseURL: env("DATABASE_URL", ""),
+	return Config{
+		HTTPAddr: httpListenAddr(),
+
+		DatabaseURL: databaseURL,
 		RedisURL:    env("REDIS_URL", ""),
 
 		CronSecret: env("CRON_SECRET", ""),
@@ -66,6 +73,37 @@ func Load() Config {
 		QueryCacheTTL: time.Duration(envInt64("QUERY_CACHE_TTL_MS", 120_000)) * time.Millisecond,
 		MaxTopN:       envInt("MAX_TOP_N", 1000),
 	}
+}
+
+func postgresURLFromEnv() string {
+	password := strings.TrimSpace(os.Getenv("DISCOVERY_PG_PASSWORD"))
+	if password == "" {
+		return ""
+	}
+
+	sslMode := env("DISCOVERY_PG_SSLMODE", "disable")
+	u := url.URL{
+		Scheme: "postgres",
+		User: url.UserPassword(
+			env("DISCOVERY_PG_USER", "discovery"),
+			password,
+		),
+		Host:     net.JoinHostPort(env("DISCOVERY_PG_HOST", "localhost"), env("DISCOVERY_PG_PORT", "5432")),
+		Path:     "/" + env("DISCOVERY_PG_DB", "discovery"),
+		RawQuery: "sslmode=" + url.QueryEscape(sslMode),
+	}
+	return u.String()
+}
+
+// httpListenAddr prefers HTTP_ADDR, then Railway/cloud PORT, then :8088.
+func httpListenAddr() string {
+	if addr := strings.TrimSpace(os.Getenv("HTTP_ADDR")); addr != "" {
+		return addr
+	}
+	if port := strings.TrimSpace(os.Getenv("PORT")); port != "" {
+		return ":" + port
+	}
+	return ":8088"
 }
 
 func env(key, def string) string {

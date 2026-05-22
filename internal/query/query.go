@@ -163,23 +163,28 @@ func normalizeWeights(w *discotypes.SLAWeights) weights {
 	if w == nil {
 		return def
 	}
-	lat := 0.4
-	swap := 0.3
-	price := 0.3
-	if w.Latency != nil {
-		lat = *w.Latency
+
+	raw := weights{
+		latency:  valueOrDefault(w.Latency, def.latency),
+		swapRate: valueOrDefault(w.SwapRate, def.swapRate),
+		price:    valueOrDefault(w.Price, def.price),
 	}
-	if w.SwapRate != nil {
-		swap = *w.SwapRate
-	}
-	if w.Price != nil {
-		price = *w.Price
-	}
-	sum := lat + swap + price
+	sum := raw.latency + raw.swapRate + raw.price
 	if sum == 0 {
 		return def
 	}
-	return weights{latency: lat / sum, swapRate: swap / sum, price: price / sum}
+	return weights{
+		latency:  raw.latency / sum,
+		swapRate: raw.swapRate / sum,
+		price:    raw.price / sum,
+	}
+}
+
+func valueOrDefault(value *float64, fallback float64) float64 {
+	if value == nil {
+		return fallback
+	}
+	return *value
 }
 
 type minMax struct {
@@ -201,27 +206,24 @@ func computeMinMax(rows []db.FlatRow) minMax {
 }
 
 func applyRowMinMax(mm *minMax, r db.FlatRow) {
-	if r.BestLatMs != nil {
-		if *r.BestLatMs < mm.minLat {
-			mm.minLat = *r.BestLatMs
-		}
-		if *r.BestLatMs > mm.maxLat {
-			mm.maxLat = *r.BestLatMs
-		}
+	updateOptionalMinMax(r.BestLatMs, &mm.minLat, &mm.maxLat)
+	updateOptionalMinMax(r.SwapRatio, &mm.minSwap, &mm.maxSwap)
+	updateMinMax(r.PricePerUnit, &mm.minPrice, &mm.maxPrice)
+}
+
+func updateOptionalMinMax(value *float64, min *float64, max *float64) {
+	if value == nil {
+		return
 	}
-	if r.SwapRatio != nil {
-		if *r.SwapRatio < mm.minSwap {
-			mm.minSwap = *r.SwapRatio
-		}
-		if *r.SwapRatio > mm.maxSwap {
-			mm.maxSwap = *r.SwapRatio
-		}
+	updateMinMax(*value, min, max)
+}
+
+func updateMinMax(value float64, min *float64, max *float64) {
+	if value < *min {
+		*min = value
 	}
-	if r.PricePerUnit < mm.minPrice {
-		mm.minPrice = r.PricePerUnit
-	}
-	if r.PricePerUnit > mm.maxPrice {
-		mm.maxPrice = r.PricePerUnit
+	if value > *max {
+		*max = value
 	}
 }
 
