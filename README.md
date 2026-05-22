@@ -14,6 +14,22 @@ Extracted from NaaP `orchestrator-leaderboard`. Plan filters remain a **client**
 | `naap-pricing` | `PRICING_API_URL` (disabled by default in DB seed) |
 | `remote-signer` | `REMOTE_SIGNER_URL` (optional) |
 
+## API documentation
+
+When the service is running, open the home page for interactive docs:
+
+- **http://localhost:8088/** → redirects to Scalar UI at `/docs`
+- **http://localhost:8088/openapi.yaml** → OpenAPI 3.1 spec
+
+## Production deployment (Railway HA)
+
+See **[deploy/railway/README.md](deploy/railway/README.md)** for multi-region Railway deployment with:
+
+- Neon Postgres (HA + read replica)
+- 3× `discoveryd` + 2× Apache LB per region
+- Cloudflare GeoDNS
+- Scheduled dataset refresh cron
+
 ## Docker Compose (recommended)
 
 Postgres and `discoveryd` share the default compose network. **Postgres is not published to the host** — only `discovery` talks to it at `postgres:5432`.

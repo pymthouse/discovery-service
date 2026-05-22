@@ -45,6 +45,10 @@ func (s *Server) Handler() http.Handler {
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
 
+	r.Get("/", s.redirectHome)
+	r.Get("/docs", s.serveDocs)
+	r.Get("/openapi.yaml", s.serveOpenAPI)
+
 	r.Get("/healthz", s.healthz)
 	r.Get("/v1/discovery/health", s.healthz)
 	r.Get("/v1/discovery/freshness", s.freshness)

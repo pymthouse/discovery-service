@@ -1,0 +1,39 @@
+# Generated at container start from DISCOVERYD_UPSTREAM and PORT env vars.
+ServerRoot "/usr/local/apache2"
+Listen ${PORT}
+ServerName discovery-apache
+
+LoadModule mpm_event_module modules/mod_mpm_event.so
+LoadModule authn_core_module modules/mod_authn_core.so
+LoadModule authz_core_module modules/mod_authz_core.so
+LoadModule log_config_module modules/mod_log_config.so
+LoadModule unixd_module modules/mod_unixd.so
+LoadModule headers_module modules/mod_headers.so
+LoadModule proxy_module modules/mod_proxy.so
+LoadModule proxy_http_module modules/mod_proxy_http.so
+LoadModule proxy_balancer_module modules/mod_proxy_balancer.so
+LoadModule lbmethod_byrequests_module modules/mod_lbmethod_byrequests.so
+LoadModule slotmem_shm_module modules/mod_slotmem_shm.so
+LoadModule status_module modules/mod_status.so
+
+User daemon
+Group daemon
+
+ErrorLog /proc/self/fd/2
+LogLevel warn
+CustomLog /proc/self/fd/1 combined
+
+ProxyRequests Off
+ProxyPreserveHost On
+ProxyTimeout 120
+
+<Proxy "balancer://discoveryd">
+${BALANCER_MEMBERS}
+    ProxySet lbmethod=byrequests
+</Proxy>
+
+RequestHeader set X-LB-Region "${LB_REGION}"
+
+# Public entry: proxy all paths (/, /docs, /v1/discovery/*, /healthz) to discoveryd
+ProxyPass / balancer://discoveryd/
+ProxyPassReverse / balancer://discoveryd/

@@ -1,0 +1,17 @@
+# Railway service config for discoveryd (private, 3 replicas).
+# Link this file in the Railway dashboard: Settings -> Config-as-code -> railway.toml path
+# Or copy settings manually from this file.
+
+[build]
+builder = "DOCKERFILE"
+dockerfilePath = "Dockerfile"
+
+[deploy]
+numReplicas = 3
+healthcheckPath = "/healthz"
+healthcheckTimeout = 30
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 5
+
+# discoveryd should NOT have a public domain — only reachable via Railway private network
+# networking.private = true  (enable in Railway UI: Settings -> Networking -> Private)
