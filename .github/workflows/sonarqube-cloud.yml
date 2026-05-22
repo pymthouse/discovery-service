@@ -47,11 +47,11 @@ jobs:
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
           SONAR_ORGANIZATION: ${{ vars.SONAR_ORGANIZATION }}
-          SONAR_PROJECT_KEY: ${{ vars.SONAR_DISCOVERY_SERVICE_PROJECT_KEY }}
+          SONAR_DISCOVERY_SERVICE_PROJECT_KEY: ${{ vars.SONAR_DISCOVERY_SERVICE_PROJECT_KEY }}
         run: |
           test -n "$SONAR_TOKEN" || { echo "SONAR_TOKEN secret is required"; exit 1; }
           test -n "$SONAR_ORGANIZATION" || { echo "SONAR_ORGANIZATION repository variable is required"; exit 1; }
-          test -n "$SONAR_PROJECT_KEY" || { echo "SONAR_DISCOVERY_SERVICE_PROJECT_KEY repository variable is required"; exit 1; }
+          test -n "$SONAR_DISCOVERY_SERVICE_PROJECT_KEY" || { echo "SONAR_DISCOVERY_SERVICE_PROJECT_KEY repository variable is required"; exit 1; }
 
       - name: SonarQube Scan
         uses: SonarSource/sonarqube-scan-action@c7ee0f9df90b7aa20e8dcf9695dcfe2e7da5b4f2 # v7.0.0
