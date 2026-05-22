@@ -1,7 +1,7 @@
 package httpapi
 
 import (
-	_ "embed"
+	_ "embed" // registers the embed.FS used by //go:embed below
 	"net/http"
 )
 

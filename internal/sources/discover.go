@@ -28,6 +28,10 @@ type discoverRow struct {
 	RecentWork   bool     `json:"recent_work"`
 }
 
+type discoverListResponse struct {
+	Data []discoverRow `json:"data"`
+}
+
 func extractCapabilityName(raw string) string {
 	if idx := strings.LastIndex(raw, "/"); idx >= 0 {
 		return raw[idx+1:]
@@ -49,10 +53,8 @@ func (a *DiscoverAdapter) FetchAll(ctx context.Context) (FetchResult, error) {
 
 	var rawRows []discoverRow
 	if err := json.Unmarshal(body, &rawRows); err != nil {
-		var wrapped struct {
-			Data []discoverRow `json:"data"`
-		}
-		if err2 := json.Unmarshal(body, &wrapped); err2 != nil {
+		var wrapped discoverListResponse
+		if err := json.Unmarshal(body, &wrapped); err != nil {
 			return FetchResult{Stats: Stats{OK: false, DurationMs: elapsedMs(start), ErrorMessage: err.Error()}}, err
 		}
 		rawRows = wrapped.Data

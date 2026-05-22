@@ -64,15 +64,21 @@ func (a *SubgraphAdapter) FetchAll(ctx context.Context) (FetchResult, error) {
 	}, nil
 }
 
+type subgraphTranscoderBlock struct {
+	Transcoders []subgraphTranscoder `json:"transcoders"`
+}
+
+type subgraphDataPayload struct {
+	Data        subgraphTranscoderBlock `json:"data"`
+	Transcoders []subgraphTranscoder    `json:"transcoders"`
+}
+
+type subgraphResponseEnvelope struct {
+	Data subgraphDataPayload `json:"data"`
+}
+
 func parseSubgraphTranscoders(body []byte) ([]NormalizedOrch, error) {
-	var envelope struct {
-		Data struct {
-			Data struct {
-				Transcoders []subgraphTranscoder `json:"transcoders"`
-			} `json:"data"`
-			Transcoders []subgraphTranscoder `json:"transcoders"`
-		} `json:"data"`
-	}
+	var envelope subgraphResponseEnvelope
 	if err := json.Unmarshal(body, &envelope); err != nil {
 		return nil, err
 	}

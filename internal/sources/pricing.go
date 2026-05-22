@@ -19,6 +19,10 @@ func NewPricing(cfg config.Config) *PricingAdapter {
 
 func (a *PricingAdapter) Kind() Kind { return KindNaapPricing }
 
+type pricingListResponse struct {
+	Data []map[string]any `json:"data"`
+}
+
 func (a *PricingAdapter) FetchAll(ctx context.Context) (FetchResult, error) {
 	start := time.Now()
 	if a.cfg.PricingAPIURL == "" {
@@ -32,10 +36,8 @@ func (a *PricingAdapter) FetchAll(ctx context.Context) (FetchResult, error) {
 
 	var raw []map[string]any
 	if err := json.Unmarshal(body, &raw); err != nil {
-		var wrapped struct {
-			Data []map[string]any `json:"data"`
-		}
-		if err2 := json.Unmarshal(body, &wrapped); err2 != nil {
+		var wrapped pricingListResponse
+		if err := json.Unmarshal(body, &wrapped); err != nil {
 			return FetchResult{Stats: Stats{OK: false, DurationMs: elapsedMs(start), ErrorMessage: err.Error()}}, err
 		}
 		raw = wrapped.Data
