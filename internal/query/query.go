@@ -6,6 +6,7 @@ import (
 	"sort"
 
 	"github.com/livepeer/discovery-service/internal/db"
+	"github.com/livepeer/discovery-service/internal/sources"
 	"github.com/livepeer/discovery-service/pkg/discotypes"
 )
 
@@ -30,10 +31,11 @@ func New(store *db.Store, maxTopN int) *Service {
 func (s *Service) Execute(ctx context.Context, req discotypes.QueryRequest) (discotypes.QueryResponse, error) {
 	topN := clampTopN(req.TopN, s.maxTopN)
 	sqlFilters := filtersFromRequest(req)
+	serviceTypes := serviceTypeFilter(req.ServiceTypes)
 
 	results := make(map[string][]discotypes.DatasetRow)
 	for _, cap := range req.Capabilities {
-		rows, err := s.store.QueryRows(ctx, cap, sqlFilters, maxCandidateRows)
+		rows, err := s.store.QueryRows(ctx, cap, serviceTypes, sqlFilters, maxCandidateRows)
 		if err != nil {
 			return discotypes.QueryResponse{}, err
 		}
@@ -139,9 +141,24 @@ func evaluateRows(rows []db.FlatRow, req discotypes.QueryRequest) []discotypes.D
 	return out
 }
 
+func serviceTypeFilter(raw []string) []string {
+	types := sources.ParseServiceTypes(raw)
+	out := make([]string, 0, len(types))
+	for _, t := range types {
+		out = append(out, string(t))
+	}
+	return out
+}
+
 func flatToAPI(r db.FlatRow) discotypes.DatasetRow {
 	return discotypes.DatasetRow{
-		OrchURI:      r.OrchURI,
+		ServiceType:       r.ServiceType,
+		EthAddress:        r.EthAddress,
+		OfferingID:        r.OfferingID,
+		InteractionMode:   r.InteractionMode,
+		WorkUnit:          r.WorkUnit,
+		PricePerUnitWei:   r.PricePerUnitWei,
+		OrchURI:           r.OrchURI,
 		GPUName:      r.GPUName,
 		GPUGb:        r.GPUGb,
 		Avail:        r.Avail,

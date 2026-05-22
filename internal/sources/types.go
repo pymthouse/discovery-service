@@ -9,16 +9,20 @@ import (
 type Kind string
 
 const (
-	KindSubgraph     Kind = "livepeer-subgraph"
-	KindClickHouse   Kind = "clickhouse-query"
-	KindNaapDiscover Kind = "naap-discover"
-	KindNaapPricing  Kind = "naap-pricing"
-	KindRemoteSigner Kind = "remote-signer"
+	KindSubgraph           Kind = "livepeer-subgraph"
+	KindRegistryManifest   Kind = "livepeer-registry-manifest"
+	KindAIRegistryManifest Kind = "livepeer-ai-registry-manifest"
+	KindClickHouse         Kind = "clickhouse-query"
+	KindNaapDiscover       Kind = "naap-discover"
+	KindNaapPricing        Kind = "naap-pricing"
+	KindRemoteSigner       Kind = "remote-signer"
 )
 
 // AllKinds is the default registration order.
 var AllKinds = []Kind{
 	KindSubgraph,
+	KindRegistryManifest,
+	KindAIRegistryManifest,
 	KindClickHouse,
 	KindNaapDiscover,
 	KindNaapPricing,
@@ -40,6 +44,7 @@ type Stats struct {
 
 // NormalizedOrch is the intermediate row shape before resolver merge.
 type NormalizedOrch struct {
+	ServiceType       ServiceType
 	EthAddress        string
 	OrchURI           string
 	Capabilities      []string
@@ -57,6 +62,18 @@ type NormalizedOrch struct {
 	AvgAvail          *float64
 	ActivationRound   int
 	DeactivationRound int
+	OfferingID        string
+	InteractionMode   string
+	WorkUnit          string
+	PricePerUnitWei   string
+}
+
+// EffectiveServiceType returns legacy when unset.
+func (o NormalizedOrch) EffectiveServiceType() ServiceType {
+	if o.ServiceType == "" {
+		return ServiceTypeLegacy
+	}
+	return o.ServiceType
 }
 
 // FetchResult is returned by each source adapter.

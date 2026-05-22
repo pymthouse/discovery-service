@@ -3,7 +3,6 @@ package sources
 import (
 	"context"
 	"encoding/json"
-	"strings"
 	"time"
 
 	"github.com/livepeer/discovery-service/internal/config"
@@ -21,22 +20,52 @@ func NewDiscover(cfg config.Config) *DiscoverAdapter {
 func (a *DiscoverAdapter) Kind() Kind { return KindNaapDiscover }
 
 type discoverRow struct {
-	Address      string   `json:"address"`
-	Score        float64  `json:"score"`
-	Capabilities []string `json:"capabilities"`
-	LastSeenMs   int64    `json:"last_seen_ms"`
-	RecentWork   bool     `json:"recent_work"`
+	Address      string         `json:"address"`
+	Score        float64        `json:"score"`
+	Capabilities CapabilityList `json:"capabilities"`
+	LastSeenMs   int64          `json:"last_seen_ms"`
+	RecentWork   bool           `json:"recent_work"`
 }
 
 type discoverListResponse struct {
 	Data []discoverRow `json:"data"`
 }
 
-func extractCapabilityName(raw string) string {
-	if idx := strings.LastIndex(raw, "/"); idx >= 0 {
-		return raw[idx+1:]
+func parseDiscoverRows(body []byte) ([]discoverRow, any, error) {
+	var rawRows []discoverRow
+	if err := json.Unmarshal(body, &rawRows); err == nil {
+		return rawRows, rawRows, nil
 	}
-	return raw
+
+	var wrapped discoverListResponse
+	if err := json.Unmarshal(body, &wrapped); err == nil && wrapped.Data != nil {
+		return wrapped.Data, wrapped, nil
+	}
+
+	var rawRowsErr []discoverRow
+	if err := json.Unmarshal(body, &rawRowsErr); err != nil {
+		return nil, nil, err
+	}
+	return rawRowsErr, rawRowsErr, nil
+}
+
+func discoverRowsToNormalized(rawRows []discoverRow) []NormalizedOrch {
+	rows := make([]NormalizedOrch, 0, len(rawRows))
+	for _, r := range rawRows {
+		if len(r.Capabilities) == 0 {
+			continue
+		}
+		caps := append([]string(nil), r.Capabilities...)
+		rows = append(rows, NormalizedOrch{
+			ServiceType:  ServiceTypeLegacy,
+			OrchURI:      r.Address,
+			Capabilities: caps,
+			Score:        r.Score,
+			RecentWork:   r.RecentWork,
+			LastSeenMs:   r.LastSeenMs,
+		})
+	}
+	return rows
 }
 
 func (a *DiscoverAdapter) FetchAll(ctx context.Context) (FetchResult, error) {
@@ -51,36 +80,16 @@ func (a *DiscoverAdapter) FetchAll(ctx context.Context) (FetchResult, error) {
 		return FetchResult{Stats: Stats{OK: false, DurationMs: elapsedMs(start), ErrorMessage: err.Error()}}, err
 	}
 
-	var rawRows []discoverRow
-	if err := json.Unmarshal(body, &rawRows); err != nil {
-		var wrapped discoverListResponse
-		if err := json.Unmarshal(body, &wrapped); err != nil {
-			return FetchResult{Stats: Stats{OK: false, DurationMs: elapsedMs(start), ErrorMessage: err.Error()}}, err
-		}
-		rawRows = wrapped.Data
+	rawRows, raw, err := parseDiscoverRows(body)
+	if err != nil {
+		return FetchResult{Stats: Stats{OK: false, DurationMs: elapsedMs(start), ErrorMessage: err.Error()}}, err
 	}
 
-	rows := make([]NormalizedOrch, 0, len(rawRows))
-	for _, r := range rawRows {
-		if len(r.Capabilities) == 0 {
-			continue
-		}
-		short := make([]string, len(r.Capabilities))
-		for i, c := range r.Capabilities {
-			short[i] = extractCapabilityName(c)
-		}
-		rows = append(rows, NormalizedOrch{
-			OrchURI:      r.Address,
-			Capabilities: short,
-			Score:        r.Score,
-			RecentWork:   r.RecentWork,
-			LastSeenMs:   r.LastSeenMs,
-		})
-	}
+	rows := discoverRowsToNormalized(rawRows)
 
 	return FetchResult{
 		Rows:  rows,
-		Raw:   rawRows,
+		Raw:   raw,
 		Stats: Stats{OK: true, Fetched: len(rows), DurationMs: elapsedMs(start)},
 	}, nil
 }

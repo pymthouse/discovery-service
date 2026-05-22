@@ -94,6 +94,7 @@ func parseSubgraphTranscoders(body []byte) ([]NormalizedOrch, error) {
 			continue
 		}
 		out = append(out, NormalizedOrch{
+			ServiceType:       ServiceTypeLegacy,
 			EthAddress:        strings.ToLower(t.ID),
 			OrchURI:           t.ServiceURI,
 			ActivationRound:   parseInt(t.ActivationRound),

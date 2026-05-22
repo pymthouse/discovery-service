@@ -66,6 +66,13 @@ paths:
       tags: [Discovery]
       summary: List capabilities in the materialized dataset
       operationId: listCapabilities
+      parameters:
+        - name: serviceType
+          in: query
+          description: Filter by service class (`legacy`, `registry`). Omit for both.
+          schema:
+            type: string
+            enum: [legacy, registry]
       responses:
         "200":
           description: Capability names
@@ -128,6 +135,12 @@ paths:
               type: string
           style: form
           explode: true
+        - name: serviceType
+          in: query
+          description: Filter by service class (`legacy`, `registry`). Omit for both.
+          schema:
+            type: string
+            enum: [legacy, registry]
       responses:
         "200":
           description: Webhook-shaped orchestrator list
@@ -242,6 +255,23 @@ components:
           type: array
           items:
             type: string
+        entries:
+          type: array
+          items:
+            $ref: "#/components/schemas/CapabilityEntry"
+
+    CapabilityEntry:
+      type: object
+      properties:
+        serviceType:
+          type: string
+          enum: [legacy, registry]
+        capability:
+          type: string
+        offeringIds:
+          type: array
+          items:
+            type: string
 
     Filters:
       type: object
@@ -293,6 +323,12 @@ components:
             type: string
           minItems: 1
           example: ["streamdiffusion-sdxl"]
+        serviceTypes:
+          type: array
+          items:
+            type: string
+            enum: [legacy, registry]
+          description: Filter dataset rows by service class. Omit for both.
         topN:
           type: integer
           minimum: 1
@@ -313,6 +349,19 @@ components:
     DatasetRow:
       type: object
       properties:
+        serviceType:
+          type: string
+          enum: [legacy, registry]
+        ethAddress:
+          type: string
+        offeringId:
+          type: string
+        interactionMode:
+          type: string
+        workUnit:
+          type: string
+        pricePerUnitWei:
+          type: string
         orchUri:
           type: string
         gpuName:

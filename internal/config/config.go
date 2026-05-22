@@ -36,6 +36,14 @@ type Config struct {
 
 	QueryCacheTTL time.Duration
 	MaxTopN       int
+
+	RegistryManifestRefreshEnabled   bool
+	RegistryManifestTimeoutMs        int64
+	RegistryManifestMaxConcurrency   int
+	RegistryManifestMaxOrchestrators int
+
+	AIServiceRegistryRPCURL  string
+	AIServiceRegistryAddress string
 }
 
 // Load reads configuration from environment variables.
@@ -72,6 +80,29 @@ func Load() Config {
 
 		QueryCacheTTL: time.Duration(envInt64("QUERY_CACHE_TTL_MS", 120_000)) * time.Millisecond,
 		MaxTopN:       envInt("MAX_TOP_N", 1000),
+
+		RegistryManifestRefreshEnabled:   envBool("REGISTRY_MANIFEST_REFRESH_ENABLED", true),
+		RegistryManifestTimeoutMs:        envInt64("REGISTRY_MANIFEST_TIMEOUT_MS", 5000),
+		RegistryManifestMaxConcurrency:   envInt("REGISTRY_MANIFEST_MAX_CONCURRENCY", 25),
+		RegistryManifestMaxOrchestrators: envInt("REGISTRY_MANIFEST_MAX_ORCHESTRATORS", 1000),
+
+		AIServiceRegistryRPCURL:  env("AI_SERVICE_REGISTRY_RPC_URL", "https://arb1.arbitrum.io/rpc"),
+		AIServiceRegistryAddress: env("AI_SERVICE_REGISTRY_ADDRESS", "0x04C0b249740175999E5BF5c9ac1dA92431EF34C5"),
+	}
+}
+
+func envBool(key string, def bool) bool {
+	v := strings.TrimSpace(os.Getenv(key))
+	if v == "" {
+		return def
+	}
+	switch strings.ToLower(v) {
+	case "1", "true", "yes", "on":
+		return true
+	case "0", "false", "no", "off":
+		return false
+	default:
+		return def
 	}
 }
 

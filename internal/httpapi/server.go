@@ -14,6 +14,7 @@ import (
 	"github.com/livepeer/discovery-service/internal/db"
 	"github.com/livepeer/discovery-service/internal/query"
 	"github.com/livepeer/discovery-service/internal/refresh"
+	"github.com/livepeer/discovery-service/internal/sources"
 	"github.com/livepeer/discovery-service/pkg/discotypes"
 )
 
@@ -93,13 +94,34 @@ func (s *Server) freshness(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) capabilities(w http.ResponseWriter, r *http.Request) {
-	caps, err := s.store.ListCapabilities(r.Context())
+	serviceTypes := capabilityServiceTypes(r)
+	entries, err := s.store.ListCapabilityEntries(r.Context(), serviceTypes)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
+	caps := make([]string, 0, len(entries))
+	seen := make(map[string]struct{})
+	for _, e := range entries {
+		if _, ok := seen[e.Capability]; ok {
+			continue
+		}
+		seen[e.Capability] = struct{}{}
+		caps = append(caps, e.Capability)
+	}
+	apiEntries := make([]discotypes.CapabilityEntry, 0, len(entries))
+	for _, e := range entries {
+		apiEntries = append(apiEntries, discotypes.CapabilityEntry{
+			ServiceType: e.ServiceType,
+			Capability:  e.Capability,
+			OfferingIDs: e.OfferingIDs,
+		})
+	}
 	w.Header().Set(headerCacheControl, "public, max-age=300")
-	writeJSON(w, http.StatusOK, map[string]any{"capabilities": caps})
+	writeJSON(w, http.StatusOK, map[string]any{
+		"capabilities": caps,
+		"entries":      apiEntries,
+	})
 }
 
 func (s *Server) discoveryQuery(w http.ResponseWriter, r *http.Request) {
@@ -152,7 +174,8 @@ func (s *Server) discoveryRaw(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
-	byAddr := mergeRawOrchestrators(r.Context(), s.store, caps)
+	serviceTypes := capabilityServiceTypes(r)
+	byAddr := mergeRawOrchestrators(r.Context(), s.store, caps, serviceTypes)
 	out := webhookOrchestratorsFromRaw(byAddr)
 	writeJSON(w, http.StatusOK, out)
 }
@@ -163,6 +186,19 @@ type rawOrchEntry struct {
 	caps    []string
 }
 
+func capabilityServiceTypes(r *http.Request) []string {
+	raw := r.URL.Query()["serviceType"]
+	if len(raw) == 0 {
+		raw = r.URL.Query()["serviceTypes"]
+	}
+	types := sources.ParseServiceTypes(raw)
+	out := make([]string, 0, len(types))
+	for _, t := range types {
+		out = append(out, string(t))
+	}
+	return out
+}
+
 func rawCapabilityNames(r *http.Request, store *db.Store) ([]string, error) {
 	caps := r.URL.Query()["caps"]
 	if len(caps) == 0 {
@@ -171,13 +207,13 @@ func rawCapabilityNames(r *http.Request, store *db.Store) ([]string, error) {
 	if len(caps) > 0 {
 		return caps, nil
 	}
-	return store.ListCapabilities(r.Context())
+	return store.ListCapabilities(r.Context(), capabilityServiceTypes(r))
 }
 
-func mergeRawOrchestrators(ctx context.Context, store *db.Store, caps []string) map[string]*rawOrchEntry {
+func mergeRawOrchestrators(ctx context.Context, store *db.Store, caps []string, serviceTypes []string) map[string]*rawOrchEntry {
 	byAddr := make(map[string]*rawOrchEntry)
 	for _, cap := range caps {
-		rows, err := store.QueryRows(ctx, cap, db.QueryFilters{}, 1000)
+		rows, err := store.QueryRows(ctx, cap, serviceTypes, db.QueryFilters{}, 1000)
 		if err != nil {
 			continue
 		}

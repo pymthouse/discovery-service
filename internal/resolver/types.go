@@ -4,17 +4,23 @@ import "github.com/livepeer/discovery-service/internal/sources"
 
 // DatasetRow is the canonical per-capability row stored in Postgres.
 type DatasetRow struct {
-	OrchURI      string
-	GPUName      string
-	GPUGb        float64
-	Avail        float64
-	TotalCap     float64
-	PricePerUnit float64
-	BestLatMs    *float64
-	AvgLatMs     *float64
-	SwapRatio    *float64
-	AvgAvail     *float64
-	Score        float64
+	ServiceType       string
+	EthAddress        string
+	OrchURI           string
+	GPUName           string
+	GPUGb             float64
+	Avail             float64
+	TotalCap          float64
+	PricePerUnit      float64
+	BestLatMs         *float64
+	AvgLatMs          *float64
+	SwapRatio         *float64
+	AvgAvail          *float64
+	Score             float64
+	OfferingID        string
+	InteractionMode   string
+	WorkUnit          string
+	PricePerUnitWei   string
 }
 
 // SourceConfig describes an enabled source for resolution.

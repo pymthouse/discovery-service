@@ -9,10 +9,19 @@ Extracted from NaaP `orchestrator-leaderboard`. Plan filters remain a **client**
 | Kind | Env |
 |------|-----|
 | `livepeer-subgraph` | `SUBGRAPH_URL`, `SUBGRAPH_ID` |
+| `livepeer-registry-manifest` | `REGISTRY_MANIFEST_*` (probes on-chain `serviceURI` manifests) |
+| `livepeer-ai-registry-manifest` | `AI_SERVICE_REGISTRY_*`, `REGISTRY_MANIFEST_*` (reads AI Service Registry `getServiceURI`) |
 | `clickhouse-query` | `CLICKHOUSE_*` or `CLICKHOUSE_GATEWAY_URL` |
 | `naap-discover` | `DISCOVER_API_URL` |
 | `naap-pricing` | `PRICING_API_URL` (disabled by default in DB seed) |
 | `remote-signer` | `REMOTE_SIGNER_URL` (optional) |
+
+Dataset rows carry an explicit `service_type`:
+
+- `legacy` — ClickHouse, discover API, pricing, remote-signer
+- `registry` — capabilities from on-chain `serviceURI` manifests (`livepeer-network-modules` v3 or coordinator envelope), including the AI Service Registry at `0x04C0b249740175999E5BF5c9ac1dA92431EF34C5`
+
+Filter with `serviceTypes` on `POST /v1/discovery/query`, or `?serviceType=registry` on `/capabilities` and `/raw`.
 
 ## API documentation
 
@@ -72,9 +81,9 @@ go run ./cmd/discoveryd
 
 - `GET /healthz` — liveness
 - `GET /v1/discovery/freshness` — dataset age and row counts
-- `GET /v1/discovery/capabilities` — distinct capabilities
-- `POST /v1/discovery/query` — client-driven ranked results
-- `GET /v1/discovery/raw?caps=...` — webhook-compatible JSON for go-livepeer gateways
+- `GET /v1/discovery/capabilities?serviceType=registry` — capability names plus `entries` metadata
+- `POST /v1/discovery/query` — client-driven ranked results (`serviceTypes: ["legacy","registry"]`)
+- `GET /v1/discovery/raw?caps=...&serviceType=legacy` — webhook-compatible JSON for go-livepeer gateways
 - `POST /v1/discovery/dataset/refresh` — refresh (Bearer `CRON_SECRET` or `X-Cron-Secret`)
 
 ## NaaP integration
