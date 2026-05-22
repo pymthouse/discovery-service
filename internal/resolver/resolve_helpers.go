@@ -49,36 +49,50 @@ func computeMembership(
 	sourceIndexes map[sources.Kind]map[orchKey][]sources.NormalizedOrch,
 	warnings []string,
 ) (map[orchKey]struct{}, string, []string) {
-	membershipKeys := make(map[orchKey]struct{})
-	membershipSource := ""
-
 	if strategy == "union" {
-		kinds := make([]string, len(enabled))
-		for i, s := range enabled {
-			kinds[i] = string(s.Kind)
-			for k := range sourceIndexes[s.Kind] {
-				membershipKeys[k] = struct{}{}
-			}
-		}
-		membershipSource = "union(" + strings.Join(kinds, ",") + ")"
-		if len(membershipKeys) == 0 {
-			warnings = append(warnings, "All sources returned 0 rows — empty dataset")
-		}
-		return membershipKeys, membershipSource, warnings
+		return computeUnionMembership(enabled, sourceIndexes, warnings)
 	}
+	return computePrimaryMembership(enabled, sourceIndexes, warnings)
+}
 
-	membershipSource = string(enabled[0].Kind)
+func computeUnionMembership(
+	enabled []SourceConfig,
+	sourceIndexes map[sources.Kind]map[orchKey][]sources.NormalizedOrch,
+	warnings []string,
+) (map[orchKey]struct{}, string, []string) {
+	membershipKeys := make(map[orchKey]struct{})
+	kinds := make([]string, len(enabled))
+	for i, s := range enabled {
+		kinds[i] = string(s.Kind)
+		for k := range sourceIndexes[s.Kind] {
+			membershipKeys[k] = struct{}{}
+		}
+	}
+	if len(membershipKeys) == 0 {
+		warnings = append(warnings, "All sources returned 0 rows — empty dataset")
+	}
+	return membershipKeys, "union(" + strings.Join(kinds, ",") + ")", warnings
+}
+
+func computePrimaryMembership(
+	enabled []SourceConfig,
+	sourceIndexes map[sources.Kind]map[orchKey][]sources.NormalizedOrch,
+	warnings []string,
+) (map[orchKey]struct{}, string, []string) {
+	membershipSource := string(enabled[0].Kind)
 	idx := sourceIndexes[enabled[0].Kind]
 	if len(idx) == 0 && len(enabled) > 1 {
 		for _, s := range enabled[1:] {
-			if len(sourceIndexes[s.Kind]) > 0 {
-				membershipSource = string(s.Kind)
-				idx = sourceIndexes[s.Kind]
-				warnings = append(warnings, "Primary membership source returned 0 rows — fallback to "+string(s.Kind))
-				break
+			if len(sourceIndexes[s.Kind]) == 0 {
+				continue
 			}
+			membershipSource = string(s.Kind)
+			idx = sourceIndexes[s.Kind]
+			warnings = append(warnings, "Primary membership source returned 0 rows — fallback to "+string(s.Kind))
+			break
 		}
 	}
+	membershipKeys := make(map[orchKey]struct{}, len(idx))
 	for k := range idx {
 		membershipKeys[k] = struct{}{}
 	}
@@ -86,16 +100,24 @@ func computeMembership(
 }
 
 func buildEthUriMaps(
+	enabled []SourceConfig,
 	sourceIndexes map[sources.Kind]map[orchKey][]sources.NormalizedOrch,
 ) (map[string]string, map[string]string) {
 	uriToEth := make(map[string]string)
 	ethToUri := make(map[string]string)
-	for _, idx := range sourceIndexes {
+	for _, s := range enabled {
+		idx := sourceIndexes[s.Kind]
 		for _, rows := range idx {
 			for _, r := range rows {
-				if r.EthAddress != "" && r.OrchURI != "" {
-					uriToEth[r.OrchURI] = strings.ToLower(r.EthAddress)
-					ethToUri[strings.ToLower(r.EthAddress)] = r.OrchURI
+				if r.EthAddress == "" || r.OrchURI == "" {
+					continue
+				}
+				eth := strings.ToLower(r.EthAddress)
+				if _, ok := uriToEth[r.OrchURI]; !ok {
+					uriToEth[r.OrchURI] = eth
+				}
+				if _, ok := ethToUri[eth]; !ok {
+					ethToUri[eth] = r.OrchURI
 				}
 			}
 		}
@@ -127,25 +149,37 @@ func membershipKeyResolver(
 		if _, ok := membershipKeys[k]; ok {
 			return k, true
 		}
-		s := string(k)
-		if strings.HasPrefix(s, "uri:") {
-			if eth, ok := uriToEth[s[4:]]; ok {
-				ek := orchKey("eth:" + eth)
-				if _, ok2 := membershipKeys[ek]; ok2 {
-					return ek, true
-				}
-			}
-		}
-		if strings.HasPrefix(s, "eth:") {
-			if uri, ok := ethToUri[s[4:]]; ok {
-				uk := orchKey("uri:" + uri)
-				if _, ok2 := membershipKeys[uk]; ok2 {
-					return uk, true
-				}
-			}
+		if alt, ok := alternateMembershipKey(k, membershipKeys, uriToEth, ethToUri); ok {
+			return alt, true
 		}
 		return "", false
 	}
+}
+
+func alternateMembershipKey(
+	k orchKey,
+	membershipKeys map[orchKey]struct{},
+	uriToEth, ethToUri map[string]string,
+) (orchKey, bool) {
+	s := string(k)
+	if strings.HasPrefix(s, "uri:") {
+		if eth, ok := uriToEth[s[4:]]; ok {
+			return membershipKeyIfPresent(orchKey("eth:"+eth), membershipKeys)
+		}
+	}
+	if strings.HasPrefix(s, "eth:") {
+		if uri, ok := ethToUri[s[4:]]; ok {
+			return membershipKeyIfPresent(orchKey("uri:"+uri), membershipKeys)
+		}
+	}
+	return "", false
+}
+
+func membershipKeyIfPresent(key orchKey, membershipKeys map[orchKey]struct{}) (orchKey, bool) {
+	if _, ok := membershipKeys[key]; ok {
+		return key, true
+	}
+	return "", false
 }
 
 func collectDroppedOutsideMembership(
@@ -207,6 +241,26 @@ func sourceRowsForMember(
 	return sourceRows
 }
 
+type fieldMerge struct {
+	name  string
+	apply func(*mergedOrch, sources.NormalizedOrch)
+}
+
+var mergedFieldMerges = []fieldMerge{
+	{name: "orchUri", apply: func(m *mergedOrch, r sources.NormalizedOrch) { m.orchURI = r.OrchURI }},
+	{name: "ethAddress", apply: func(m *mergedOrch, r sources.NormalizedOrch) { m.ethAddress = r.EthAddress }},
+	{name: "gpuName", apply: func(m *mergedOrch, r sources.NormalizedOrch) { m.gpuName = r.GPUName }},
+	{name: "gpuGb", apply: func(m *mergedOrch, r sources.NormalizedOrch) { m.gpuGb = r.GPUGb }},
+	{name: "avail", apply: func(m *mergedOrch, r sources.NormalizedOrch) { m.avail = r.Avail }},
+	{name: "totalCap", apply: func(m *mergedOrch, r sources.NormalizedOrch) { m.totalCap = r.TotalCap }},
+	{name: "pricePerUnit", apply: func(m *mergedOrch, r sources.NormalizedOrch) { m.pricePerUnit = r.PricePerUnit }},
+	{name: "bestLatMs", apply: func(m *mergedOrch, r sources.NormalizedOrch) { m.bestLatMs = r.BestLatMs }},
+	{name: "avgLatMs", apply: func(m *mergedOrch, r sources.NormalizedOrch) { m.avgLatMs = r.AvgLatMs }},
+	{name: "swapRatio", apply: func(m *mergedOrch, r sources.NormalizedOrch) { m.swapRatio = r.SwapRatio }},
+	{name: "avgAvail", apply: func(m *mergedOrch, r sources.NormalizedOrch) { m.avgAvail = r.AvgAvail }},
+	{name: "score", apply: func(m *mergedOrch, r sources.NormalizedOrch) { m.score = r.Score }},
+}
+
 func mergeMemberOrchestrator(
 	memberKey orchKey,
 	enabled []SourceConfig,
@@ -215,73 +269,110 @@ func mergeMemberOrchestrator(
 	conflicts *[]ConflictEntry,
 ) mergedOrch {
 	m := mergedOrch{}
-	resolveField := func(field string, apply func(*mergedOrch, sources.NormalizedOrch)) {
-		priority := fieldPriority[field]
-		if len(priority) == 0 {
-			for _, s := range enabled {
-				priority = append(priority, s.Kind)
-			}
-		}
-		var winner sources.Kind
-		var winnerRow sources.NormalizedOrch
-		var losers []LoserEntry
+	for _, field := range mergedFieldMerges {
+		applyMergedField(memberKey, field.name, enabled, sourceRows, fieldPriority, conflicts, &m, field.apply)
+	}
+	m.capabilities = mergeCapabilitiesByPriority(enabled, sourceRows, fieldPriority)
+	return m
+}
 
-		for _, src := range priority {
-			rows, ok := sourceRows[src]
-			if !ok || len(rows) == 0 {
-				continue
-			}
-			r := rows[0]
-			if !fieldSet(r, field) {
-				continue
-			}
-			if winner == "" {
-				winner = src
-				winnerRow = r
-			} else {
-				losers = append(losers, LoserEntry{Source: src, Value: fieldVal(r, field)})
-			}
+func applyMergedField(
+	memberKey orchKey,
+	field string,
+	enabled []SourceConfig,
+	sourceRows map[sources.Kind][]sources.NormalizedOrch,
+	fieldPriority map[string][]sources.Kind,
+	conflicts *[]ConflictEntry,
+	m *mergedOrch,
+	apply func(*mergedOrch, sources.NormalizedOrch),
+) {
+	winner, winnerRow, losers := pickFieldWinner(field, enabled, sourceRows, fieldPriority)
+	if winner == "" {
+		return
+	}
+	apply(m, winnerRow)
+	if len(losers) == 0 {
+		return
+	}
+	*conflicts = append(*conflicts, ConflictEntry{
+		OrchKey: string(memberKey),
+		Field:   field,
+		Winner:  winner,
+		Losers:  losers,
+	})
+}
+
+func pickFieldWinner(
+	field string,
+	enabled []SourceConfig,
+	sourceRows map[sources.Kind][]sources.NormalizedOrch,
+	fieldPriority map[string][]sources.Kind,
+) (sources.Kind, sources.NormalizedOrch, []LoserEntry) {
+	priority := fieldPriority[field]
+	if len(priority) == 0 {
+		for _, s := range enabled {
+			priority = append(priority, s.Kind)
+		}
+	}
+	var winner sources.Kind
+	var winnerRow sources.NormalizedOrch
+	var losers []LoserEntry
+	for _, src := range priority {
+		rows, ok := sourceRows[src]
+		if !ok || len(rows) == 0 {
+			continue
+		}
+		r := rows[0]
+		if !fieldSet(r, field) {
+			continue
 		}
 		if winner == "" {
-			return
+			winner = src
+			winnerRow = r
+			continue
 		}
-		apply(&m, winnerRow)
-		if len(losers) > 0 {
-			*conflicts = append(*conflicts, ConflictEntry{
-				OrchKey: string(memberKey),
-				Field:   field,
-				Winner:  winner,
-				Losers:  losers,
-			})
+		losers = append(losers, LoserEntry{Source: src, Value: fieldVal(r, field)})
+	}
+	return winner, winnerRow, losers
+}
+
+func mergeCapabilitiesByPriority(
+	enabled []SourceConfig,
+	sourceRows map[sources.Kind][]sources.NormalizedOrch,
+	fieldPriority map[string][]sources.Kind,
+) []string {
+	priority := fieldPriority["capabilities"]
+	if len(priority) == 0 {
+		for _, s := range enabled {
+			priority = append(priority, s.Kind)
 		}
 	}
+	for _, src := range priority {
+		rows, ok := sourceRows[src]
+		if !ok || len(rows) == 0 {
+			continue
+		}
+		caps := collectCapabilities(rows)
+		if len(caps) > 0 {
+			return caps
+		}
+	}
+	return nil
+}
 
-	resolveField("orchUri", func(m *mergedOrch, r sources.NormalizedOrch) { m.orchURI = r.OrchURI })
-	resolveField("ethAddress", func(m *mergedOrch, r sources.NormalizedOrch) { m.ethAddress = r.EthAddress })
-	resolveField("gpuName", func(m *mergedOrch, r sources.NormalizedOrch) { m.gpuName = r.GPUName })
-	resolveField("gpuGb", func(m *mergedOrch, r sources.NormalizedOrch) { m.gpuGb = r.GPUGb })
-	resolveField("avail", func(m *mergedOrch, r sources.NormalizedOrch) { m.avail = r.Avail })
-	resolveField("totalCap", func(m *mergedOrch, r sources.NormalizedOrch) { m.totalCap = r.TotalCap })
-	resolveField("pricePerUnit", func(m *mergedOrch, r sources.NormalizedOrch) { m.pricePerUnit = r.PricePerUnit })
-	resolveField("bestLatMs", func(m *mergedOrch, r sources.NormalizedOrch) { m.bestLatMs = r.BestLatMs })
-	resolveField("avgLatMs", func(m *mergedOrch, r sources.NormalizedOrch) { m.avgLatMs = r.AvgLatMs })
-	resolveField("swapRatio", func(m *mergedOrch, r sources.NormalizedOrch) { m.swapRatio = r.SwapRatio })
-	resolveField("avgAvail", func(m *mergedOrch, r sources.NormalizedOrch) { m.avgAvail = r.AvgAvail })
-	resolveField("score", func(m *mergedOrch, r sources.NormalizedOrch) { m.score = r.Score })
-
+func collectCapabilities(rows []sources.NormalizedOrch) []string {
 	capSet := make(map[string]struct{})
-	for _, rows := range sourceRows {
-		for _, r := range rows {
-			for _, c := range r.Capabilities {
-				capSet[c] = struct{}{}
-			}
+	for _, r := range rows {
+		for _, c := range r.Capabilities {
+			capSet[c] = struct{}{}
 		}
 	}
+	caps := make([]string, 0, len(capSet))
 	for c := range capSet {
-		m.capabilities = append(m.capabilities, c)
+		caps = append(caps, c)
 	}
-	sort.Strings(m.capabilities)
-	return m
+	sort.Strings(caps)
+	return caps
 }
 
 func buildCapabilityDataset(merged map[orchKey]mergedOrch) (map[string][]DatasetRow, int) {

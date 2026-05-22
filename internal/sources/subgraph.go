@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
@@ -111,7 +112,6 @@ type subgraphTranscoder struct {
 }
 
 func parseInt(s string) int {
-	var n int
-	fmt.Sscanf(s, "%d", &n)
+	n, _ := strconv.Atoi(s)
 	return n
 }

@@ -198,7 +198,11 @@ func (s *Store) WriteDataset(ctx context.Context, capabilities map[string][]Flat
 	if err != nil {
 		return 0, 0, err
 	}
-	defer tx.Rollback(ctx)
+	defer func() {
+		if err := tx.Rollback(ctx); err != nil && err != pgx.ErrTxClosed {
+			return
+		}
+	}()
 
 	if _, err := tx.Exec(ctx, `DELETE FROM leaderboard_dataset_rows`); err != nil {
 		return 0, 0, err

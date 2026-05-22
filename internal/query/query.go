@@ -97,7 +97,10 @@ func filterByMinSLA(rows []discotypes.DatasetRow, min float64) []discotypes.Data
 }
 
 func attachFreshness(store *db.Store, ctx context.Context, resp discotypes.QueryResponse) (discotypes.QueryResponse, error) {
-	meta, _ := store.GetConfig(ctx)
+	meta, err := store.GetConfig(ctx)
+	if err != nil {
+		return resp, err
+	}
 	if meta.LastRefreshedAt == nil {
 		return resp, nil
 	}

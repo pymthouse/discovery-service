@@ -82,11 +82,11 @@ Enable **WAF** managed rulesets on the proxied hostname. Use Cloudflare Load Bal
 |----------|---------------|-----------|
 | `/docs`, `/openapi.yaml` | `public, max-age=300` | Static docs; short TTL |
 | `/v1/discovery/capabilities` | `public, max-age=300` | Changes only on dataset refresh |
-| `/v1/discovery/query` (POST) | `no-store` | Client-specific filters |
-| `/v1/discovery/dataset/refresh` | `no-store` | Mutates dataset |
+| `/v1/discovery/query` (POST) | `no-store, private` | Client-specific filters; Go layer |
+| `/v1/discovery/dataset/refresh` | `no-store, private` | Mutates dataset; Go layer |
 | `/v1/discovery/freshness`, `/healthz` | `no-store` | Operational truth |
 
-Apache [`httpd.conf.template`](../apache/httpd.conf.template) mirrors these headers at the edge.
+Go handlers in `internal/httpapi/server.go` set the values above. Apache [`httpd.conf.template`](../apache/httpd.conf.template) mirrors the same policy at the edge for proxied routes.
 
 ## Emergency controls
 

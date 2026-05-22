@@ -1,4 +1,4 @@
-FROM httpd:2.4-alpine
+FROM httpd:2.4-alpine@sha256:0136c2d4462f3b8ecc92bea70efdfef4d06523999ae8d7aa533969dea6db4576
 
 RUN apk add --no-cache gettext
 

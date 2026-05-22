@@ -86,7 +86,7 @@ func Resolve(perSource map[sources.Kind][]sources.NormalizedOrch, cfg Config) Re
 	}
 
 	membershipKeys, membershipSource, warnings := computeMembership(strategy, enabled, sourceIndexes, warnings)
-	uriToEth, ethToUri := buildEthUriMaps(sourceIndexes)
+	uriToEth, ethToUri := buildEthUriMaps(enabled, sourceIndexes)
 	dedupeUriMembershipKeys(membershipKeys, uriToEth)
 
 	resolveKey := membershipKeyResolver(membershipKeys, uriToEth, ethToUri)

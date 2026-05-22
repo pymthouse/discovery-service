@@ -25,7 +25,7 @@ func httpGet(ctx context.Context, url string, headers map[string]string) ([]byte
 	if err != nil {
 		return nil, err
 	}
-	defer res.Body.Close()
+	defer func() { _ = res.Body.Close() }()
 	body, err := io.ReadAll(res.Body)
 	if err != nil {
 		return nil, err
@@ -52,7 +52,7 @@ func httpPost(ctx context.Context, url string, headers map[string]string, body [
 	if err != nil {
 		return nil, err
 	}
-	defer res.Body.Close()
+	defer func() { _ = res.Body.Close() }()
 	out, err := io.ReadAll(res.Body)
 	if err != nil {
 		return nil, err
