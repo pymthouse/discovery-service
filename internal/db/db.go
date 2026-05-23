@@ -83,12 +83,13 @@ func (s *Store) LoadSources(ctx context.Context) ([]SourceRow, error) {
 
 // ConfigMeta holds singleton leaderboard config.
 type ConfigMeta struct {
-	LastRefreshedAt    *time.Time
-	LastRefreshedBy    string
-	KnownCapabilities  []string
-	MembershipStrategy string
-	RefreshIntervalMs  int64
-	DatasetVersion     int64
+	LastRefreshedAt        *time.Time
+	LastRefreshedBy        string
+	KnownCapabilities      []string
+	KnownCapabilityEntries []CapabilityEntry
+	MembershipStrategy     string
+	RefreshIntervalMs      int64
+	DatasetVersion         int64
 }
 
 // GetConfig loads singleton config metadata.
@@ -108,49 +109,118 @@ func (s *Store) GetConfig(ctx context.Context) (ConfigMeta, error) {
 	if err != nil {
 		return meta, err
 	}
-	_ = json.Unmarshal(capsJSON, &meta.KnownCapabilities)
+	if err := json.Unmarshal(capsJSON, &meta.KnownCapabilityEntries); err != nil || len(meta.KnownCapabilityEntries) == 0 {
+		_ = json.Unmarshal(capsJSON, &meta.KnownCapabilities)
+		for _, cap := range meta.KnownCapabilities {
+			meta.KnownCapabilityEntries = append(meta.KnownCapabilityEntries, CapabilityEntry{
+				ServiceType: "legacy",
+				Capability:  cap,
+			})
+		}
+	} else {
+		meta.KnownCapabilities = capabilityNamesFromEntries(meta.KnownCapabilityEntries)
+	}
 	if meta.LastRefreshedAt != nil {
 		meta.DatasetVersion = meta.LastRefreshedAt.UnixMilli()
 	}
 	return meta, nil
 }
 
+// CapabilityEntry summarizes one capability namespace in the dataset.
+type CapabilityEntry struct {
+	ServiceType string   `json:"serviceType"`
+	Capability  string   `json:"capability"`
+	OfferingIDs []string `json:"offeringIds,omitempty"`
+}
+
 // FlatRow is a row to insert into leaderboard_dataset_rows.
 type FlatRow struct {
-	Capability   string
-	OrchURI      string
-	GPUName      string
-	GPUGb        float64
-	Avail        float64
-	TotalCap     float64
-	PricePerUnit float64
-	BestLatMs    *float64
-	AvgLatMs     *float64
-	SwapRatio    *float64
-	AvgAvail     *float64
-	Score        float64
+	ServiceType     string
+	Capability      string
+	EthAddress      string
+	OrchURI         string
+	OfferingID      string
+	InteractionMode string
+	WorkUnit        string
+	PricePerUnitWei string
+	GPUName         string
+	GPUGb           float64
+	Avail           float64
+	TotalCap        float64
+	PricePerUnit    float64
+	BestLatMs       *float64
+	AvgLatMs        *float64
+	SwapRatio       *float64
+	AvgAvail        *float64
+	Score           float64
 }
 
 const batchSize = 500
 
-func flattenCapabilityRows(capabilities map[string][]FlatRow) ([]FlatRow, []string) {
-	capNames := make([]string, 0, len(capabilities))
-	for cap := range capabilities {
-		capNames = append(capNames, cap)
+func normalizeFlatRows(rows []FlatRow) []FlatRow {
+	flat := make([]FlatRow, 0, len(rows))
+	for _, r := range rows {
+		if r.OrchURI == "" || r.Capability == "" {
+			continue
+		}
+		if r.ServiceType == "" {
+			r.ServiceType = "legacy"
+		}
+		flat = append(flat, r)
 	}
-	sort.Strings(capNames)
+	return flat
+}
 
-	flat := make([]FlatRow, 0)
-	for _, cap := range capNames {
-		for _, r := range capabilities[cap] {
-			if r.OrchURI == "" {
-				continue
-			}
-			r.Capability = cap
-			flat = append(flat, r)
+func buildCapabilityEntries(rows []FlatRow) []CapabilityEntry {
+	type key struct {
+		serviceType string
+		capability  string
+	}
+	offerings := make(map[key]map[string]struct{})
+	order := make([]key, 0)
+	for _, r := range rows {
+		k := key{serviceType: r.ServiceType, capability: r.Capability}
+		if _, ok := offerings[k]; !ok {
+			offerings[k] = make(map[string]struct{})
+			order = append(order, k)
+		}
+		if r.OfferingID != "" {
+			offerings[k][r.OfferingID] = struct{}{}
 		}
 	}
-	return flat, capNames
+	sort.Slice(order, func(i, j int) bool {
+		if order[i].serviceType != order[j].serviceType {
+			return order[i].serviceType < order[j].serviceType
+		}
+		return order[i].capability < order[j].capability
+	})
+	entries := make([]CapabilityEntry, 0, len(order))
+	for _, k := range order {
+		entry := CapabilityEntry{
+			ServiceType: k.serviceType,
+			Capability:  k.capability,
+		}
+		for off := range offerings[k] {
+			entry.OfferingIDs = append(entry.OfferingIDs, off)
+		}
+		sort.Strings(entry.OfferingIDs)
+		entries = append(entries, entry)
+	}
+	return entries
+}
+
+func capabilityNamesFromEntries(entries []CapabilityEntry) []string {
+	names := make([]string, 0, len(entries))
+	seen := make(map[string]struct{})
+	for _, e := range entries {
+		if _, ok := seen[e.Capability]; ok {
+			continue
+		}
+		seen[e.Capability] = struct{}{}
+		names = append(names, e.Capability)
+	}
+	sort.Strings(names)
+	return names
 }
 
 func (s *Store) insertFlatRows(ctx context.Context, tx pgx.Tx, flat []FlatRow) error {
@@ -162,10 +232,14 @@ func (s *Store) insertFlatRows(ctx context.Context, tx pgx.Tx, flat []FlatRow) e
 		for _, r := range flat[i:end] {
 			_, err := tx.Exec(ctx, `
 				INSERT INTO leaderboard_dataset_rows (
-					capability, orch_uri, gpu_name, gpu_gb, avail, total_cap,
+					service_type, capability, orch_uri, eth_address, offering_id,
+					interaction_mode, work_unit, price_per_unit_wei,
+					gpu_name, gpu_gb, avail, total_cap,
 					price_per_unit, best_lat_ms, avg_lat_ms, swap_ratio, avg_avail, score
-				) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`,
-				r.Capability, r.OrchURI, r.GPUName, r.GPUGb, r.Avail, r.TotalCap,
+				) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18)`,
+				r.ServiceType, r.Capability, r.OrchURI, r.EthAddress, r.OfferingID,
+				r.InteractionMode, r.WorkUnit, r.PricePerUnitWei,
+				r.GPUName, r.GPUGb, r.Avail, r.TotalCap,
 				r.PricePerUnit, r.BestLatMs, r.AvgLatMs, r.SwapRatio, r.AvgAvail, r.Score,
 			)
 			if err != nil {
@@ -176,8 +250,8 @@ func (s *Store) insertFlatRows(ctx context.Context, tx pgx.Tx, flat []FlatRow) e
 	return nil
 }
 
-func (s *Store) updateDatasetConfig(ctx context.Context, tx pgx.Tx, refreshedBy string, capNames []string) error {
-	capsJSON, _ := json.Marshal(capNames)
+func (s *Store) updateDatasetConfig(ctx context.Context, tx pgx.Tx, refreshedBy string, entries []CapabilityEntry) error {
+	capsJSON, _ := json.Marshal(entries)
 	_, err := tx.Exec(ctx, `
 		INSERT INTO leaderboard_config (id, last_refreshed_at, last_refreshed_by, known_capabilities)
 		VALUES ('singleton', now(), $1, $2::jsonb)
@@ -191,8 +265,9 @@ func (s *Store) updateDatasetConfig(ctx context.Context, tx pgx.Tx, refreshedBy 
 }
 
 // WriteDataset replaces the full materialized dataset.
-func (s *Store) WriteDataset(ctx context.Context, capabilities map[string][]FlatRow, refreshedBy string) (totalRows int, totalCaps int, err error) {
-	flat, capNames := flattenCapabilityRows(capabilities)
+func (s *Store) WriteDataset(ctx context.Context, rows []FlatRow, refreshedBy string) (totalRows int, totalCaps int, err error) {
+	flat := normalizeFlatRows(rows)
+	entries := buildCapabilityEntries(flat)
 
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
@@ -210,23 +285,31 @@ func (s *Store) WriteDataset(ctx context.Context, capabilities map[string][]Flat
 	if err := s.insertFlatRows(ctx, tx, flat); err != nil {
 		return 0, 0, err
 	}
-	if err := s.updateDatasetConfig(ctx, tx, refreshedBy, capNames); err != nil {
+	if err := s.updateDatasetConfig(ctx, tx, refreshedBy, entries); err != nil {
 		return 0, 0, err
 	}
 	if err := tx.Commit(ctx); err != nil {
 		return 0, 0, err
 	}
-	return len(flat), len(capNames), nil
+	return len(flat), len(entries), nil
 }
 
 // QueryRows fetches dataset rows for one capability with SQL filters.
-func (s *Store) QueryRows(ctx context.Context, capability string, filters QueryFilters, limit int) ([]FlatRow, error) {
+func (s *Store) QueryRows(ctx context.Context, capability string, serviceTypes []string, filters QueryFilters, limit int) ([]FlatRow, error) {
 	q := `
-		SELECT orch_uri, gpu_name, gpu_gb, avail, total_cap, price_per_unit,
+		SELECT service_type, capability, orch_uri, eth_address, offering_id,
+			interaction_mode, work_unit, price_per_unit_wei,
+			gpu_name, gpu_gb, avail, total_cap, price_per_unit,
 			best_lat_ms, avg_lat_ms, swap_ratio, avg_avail, score
 		FROM leaderboard_dataset_rows WHERE capability = $1`
 	args := []any{capability}
 	n := 2
+
+	if len(serviceTypes) > 0 {
+		q += fmt.Sprintf(" AND service_type = ANY($%d)", n)
+		args = append(args, serviceTypes)
+		n++
+	}
 
 	if filters.GPURamGbMin != nil {
 		q += fmt.Sprintf(" AND gpu_gb >= $%d", n)
@@ -266,9 +349,10 @@ func (s *Store) QueryRows(ctx context.Context, capability string, filters QueryF
 	var out []FlatRow
 	for rows.Next() {
 		var r FlatRow
-		r.Capability = capability
 		if err := rows.Scan(
-			&r.OrchURI, &r.GPUName, &r.GPUGb, &r.Avail, &r.TotalCap, &r.PricePerUnit,
+			&r.ServiceType, &r.Capability, &r.OrchURI, &r.EthAddress, &r.OfferingID,
+			&r.InteractionMode, &r.WorkUnit, &r.PricePerUnitWei,
+			&r.GPUName, &r.GPUGb, &r.Avail, &r.TotalCap, &r.PricePerUnit,
 			&r.BestLatMs, &r.AvgLatMs, &r.SwapRatio, &r.AvgAvail, &r.Score,
 		); err != nil {
 			return nil, err
@@ -278,30 +362,62 @@ func (s *Store) QueryRows(ctx context.Context, capability string, filters QueryF
 	return out, rows.Err()
 }
 
-// ListCapabilities returns distinct capabilities in the dataset.
-func (s *Store) ListCapabilities(ctx context.Context) ([]string, error) {
-	rows, err := s.pool.Query(ctx, `
-		SELECT DISTINCT capability FROM leaderboard_dataset_rows ORDER BY capability`)
+// ListCapabilities returns distinct capability names in the dataset.
+func (s *Store) ListCapabilities(ctx context.Context, serviceTypes []string) ([]string, error) {
+	entries, err := s.ListCapabilityEntries(ctx, serviceTypes)
+	if err != nil {
+		return nil, err
+	}
+	return capabilityNamesFromEntries(entries), nil
+}
+
+// ListCapabilityEntries returns capability summaries optionally filtered by service type.
+func (s *Store) ListCapabilityEntries(ctx context.Context, serviceTypes []string) ([]CapabilityEntry, error) {
+	q := `
+		SELECT service_type, capability, offering_id
+		FROM leaderboard_dataset_rows`
+	args := []any{}
+	if len(serviceTypes) > 0 {
+		q += ` WHERE service_type = ANY($1)`
+		args = append(args, serviceTypes)
+	}
+	q += ` ORDER BY service_type, capability, offering_id`
+
+	rows, err := s.pool.Query(ctx, q, args...)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var caps []string
+
+	flat := make([]FlatRow, 0)
 	for rows.Next() {
-		var c string
-		if err := rows.Scan(&c); err != nil {
+		var r FlatRow
+		if err := rows.Scan(&r.ServiceType, &r.Capability, &r.OfferingID); err != nil {
 			return nil, err
 		}
-		caps = append(caps, c)
+		flat = append(flat, r)
 	}
-	if len(caps) > 0 {
-		return caps, rows.Err()
+	if len(flat) > 0 {
+		return buildCapabilityEntries(flat), rows.Err()
 	}
+
 	meta, err := s.GetConfig(ctx)
 	if err != nil {
 		return nil, err
 	}
-	return meta.KnownCapabilities, nil
+	if len(serviceTypes) == 0 {
+		return meta.KnownCapabilityEntries, nil
+	}
+	filtered := make([]CapabilityEntry, 0)
+	for _, e := range meta.KnownCapabilityEntries {
+		for _, st := range serviceTypes {
+			if e.ServiceType == st {
+				filtered = append(filtered, e)
+				break
+			}
+		}
+	}
+	return filtered, nil
 }
 
 // WriteAudit persists a refresh audit record.

@@ -118,6 +118,7 @@ type CHRow struct {
 
 func chRowToNormalized(r CHRow, capability string) NormalizedOrch {
 	return NormalizedOrch{
+		ServiceType:  ServiceTypeLegacy,
 		OrchURI:      r.OrchURI,
 		GPUName:      r.GPUName,
 		GPUGb:        r.GPUGb,

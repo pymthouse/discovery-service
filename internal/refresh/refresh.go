@@ -49,9 +49,6 @@ func (s *Service) Run(ctx context.Context, refreshedBy string) (discotypes.Refre
 	var mu sync.Mutex
 	var wg sync.WaitGroup
 
-	fetchCtx := sources.FetchCtx{}
-	_ = fetchCtx
-
 	for _, sc := range resolverCfg.Sources {
 		if !sc.Enabled {
 			continue
@@ -82,38 +79,85 @@ func (s *Service) Run(ctx context.Context, refreshedBy string) (discotypes.Refre
 	}
 	wg.Wait()
 
-	res := resolver.Resolve(perSource, resolverCfg)
-
-	flat := make(map[string][]db.FlatRow)
-	for cap, rows := range res.Capabilities {
-		for _, r := range rows {
-			flat[cap] = append(flat[cap], db.FlatRow{
-				OrchURI:      r.OrchURI,
-				GPUName:      r.GPUName,
-				GPUGb:        r.GPUGb,
-				Avail:        r.Avail,
-				TotalCap:     r.TotalCap,
-				PricePerUnit: r.PricePerUnit,
-				BestLatMs:    r.BestLatMs,
-				AvgLatMs:     r.AvgLatMs,
-				SwapRatio:    r.SwapRatio,
-				AvgAvail:     r.AvgAvail,
-				Score:        r.Score,
-			})
+	legacyPerSource := make(map[sources.Kind][]sources.NormalizedOrch)
+	var registryRows []sources.NormalizedOrch
+	for kind, rows := range perSource {
+		if kind == sources.KindRegistryManifest || kind == sources.KindAIRegistryManifest {
+			registryRows = append(registryRows, rows...)
+			continue
 		}
+		legacyPerSource[kind] = rows
 	}
+
+	legacyRes := resolver.Resolve(legacyPerSource, resolverCfg)
+	registryCaps := resolver.BuildRegistryDataset(registryRows)
+
+	flat := make([]db.FlatRow, 0)
+	flat = append(flat, resolverRowsToFlat(legacyRes.Capabilities)...)
+	flat = append(flat, resolverRowsToFlat(registryCaps)...)
 
 	_, capCount, err := s.store.WriteDataset(ctx, flat, refreshedBy)
 	if err != nil {
 		return result, err
 	}
 
-	auditJSON, _ := json.Marshal(res.Audit)
+	auditJSON, _ := json.Marshal(legacyRes.Audit)
 	perSourceJSON, _ := json.Marshal(sourceStats)
 	_ = s.store.WriteAudit(ctx, refreshedBy, time.Since(t0).Milliseconds(), auditJSON, perSourceJSON)
 
 	result.Capabilities = capCount
-	result.Orchestrators = res.Audit.TotalOrchestrators
+	result.Orchestrators = legacyRes.Audit.TotalOrchestrators + countRegistryOrchestrators(registryRows)
 	result.DurationMs = time.Since(t0).Milliseconds()
 	return result, nil
+}
+
+func resolverRowsToFlat(capabilities map[string][]resolver.DatasetRow) []db.FlatRow {
+	flat := make([]db.FlatRow, 0)
+	for cap, rows := range capabilities {
+		for _, r := range rows {
+			if r.OrchURI == "" {
+				continue
+			}
+			serviceType := r.ServiceType
+			if serviceType == "" {
+				serviceType = string(sources.ServiceTypeLegacy)
+			}
+			flat = append(flat, db.FlatRow{
+				ServiceType:     serviceType,
+				Capability:      cap,
+				EthAddress:      r.EthAddress,
+				OrchURI:         r.OrchURI,
+				GPUName:         r.GPUName,
+				GPUGb:           r.GPUGb,
+				Avail:           r.Avail,
+				TotalCap:        r.TotalCap,
+				PricePerUnit:    r.PricePerUnit,
+				BestLatMs:       r.BestLatMs,
+				AvgLatMs:        r.AvgLatMs,
+				SwapRatio:       r.SwapRatio,
+				AvgAvail:        r.AvgAvail,
+				Score:           r.Score,
+				OfferingID:      r.OfferingID,
+				InteractionMode: r.InteractionMode,
+				WorkUnit:        r.WorkUnit,
+				PricePerUnitWei: r.PricePerUnitWei,
+			})
+		}
+	}
+	return flat
+}
+
+func countRegistryOrchestrators(rows []sources.NormalizedOrch) int {
+	seen := make(map[string]struct{})
+	for _, r := range rows {
+		key := r.OrchURI
+		if key == "" {
+			key = r.EthAddress
+		}
+		if key == "" {
+			continue
+		}
+		seen[key] = struct{}{}
+	}
+	return len(seen)
 }

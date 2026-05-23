@@ -13,6 +13,10 @@ import (
 const defaultHTTPTimeout = 15 * time.Second
 
 func httpGet(ctx context.Context, url string, headers map[string]string) ([]byte, error) {
+	return httpGetTimeout(ctx, url, headers, defaultHTTPTimeout)
+}
+
+func httpGetTimeout(ctx context.Context, url string, headers map[string]string, timeout time.Duration) ([]byte, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
 		return nil, err
@@ -20,7 +24,10 @@ func httpGet(ctx context.Context, url string, headers map[string]string) ([]byte
 	for k, v := range headers {
 		req.Header.Set(k, v)
 	}
-	client := &http.Client{Timeout: defaultHTTPTimeout}
+	if timeout <= 0 {
+		timeout = defaultHTTPTimeout
+	}
+	client := &http.Client{Timeout: timeout}
 	res, err := client.Do(req)
 	if err != nil {
 		return nil, err

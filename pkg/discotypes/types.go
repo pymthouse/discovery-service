@@ -1,20 +1,33 @@
 // Package discotypes defines public discovery API types.
 package discotypes
 
+// CapabilityEntry summarizes one capability namespace in the dataset.
+type CapabilityEntry struct {
+	ServiceType string   `json:"serviceType"`
+	Capability  string   `json:"capability"`
+	OfferingIDs []string `json:"offeringIds,omitempty"`
+}
+
 // DatasetRow is the canonical materialized orchestrator row per capability.
 type DatasetRow struct {
-	OrchURI      string   `json:"orchUri"`
-	GPUName      string   `json:"gpuName"`
-	GPUGb        float64  `json:"gpuGb"`
-	Avail        float64  `json:"avail"`
-	TotalCap     float64  `json:"totalCap"`
-	PricePerUnit float64  `json:"pricePerUnit"`
-	BestLatMs    *float64 `json:"bestLatMs"`
-	AvgLatMs     *float64 `json:"avgLatMs"`
-	SwapRatio    *float64 `json:"swapRatio"`
-	AvgAvail     *float64 `json:"avgAvail"`
-	Score        float64  `json:"score,omitempty"`
-	SLAScore     *float64 `json:"slaScore,omitempty"`
+	ServiceType     string   `json:"serviceType,omitempty"`
+	EthAddress      string   `json:"ethAddress,omitempty"`
+	OfferingID      string   `json:"offeringId,omitempty"`
+	InteractionMode string   `json:"interactionMode,omitempty"`
+	WorkUnit        string   `json:"workUnit,omitempty"`
+	PricePerUnitWei string   `json:"pricePerUnitWei,omitempty"`
+	OrchURI         string   `json:"orchUri"`
+	GPUName         string   `json:"gpuName"`
+	GPUGb           float64  `json:"gpuGb"`
+	Avail           float64  `json:"avail"`
+	TotalCap        float64  `json:"totalCap"`
+	PricePerUnit    float64  `json:"pricePerUnit"`
+	BestLatMs       *float64 `json:"bestLatMs"`
+	AvgLatMs        *float64 `json:"avgLatMs"`
+	SwapRatio       *float64 `json:"swapRatio"`
+	AvgAvail        *float64 `json:"avgAvail"`
+	Score           float64  `json:"score,omitempty"`
+	SLAScore        *float64 `json:"slaScore,omitempty"`
 }
 
 // Filters are client-supplied query constraints (no persisted plans).
@@ -36,6 +49,7 @@ type SLAWeights struct {
 // QueryRequest is POST /v1/discovery/query body.
 type QueryRequest struct {
 	Capabilities []string    `json:"capabilities"`
+	ServiceTypes []string    `json:"serviceTypes,omitempty"`
 	TopN         *int        `json:"topN,omitempty"`
 	Filters      *Filters    `json:"filters,omitempty"`
 	SLAWeights   *SLAWeights `json:"slaWeights,omitempty"`

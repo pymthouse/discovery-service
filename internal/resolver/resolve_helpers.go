@@ -389,6 +389,8 @@ func buildCapabilityDataset(merged map[orchKey]mergedOrch) (map[string][]Dataset
 				continue
 			}
 			row := DatasetRow{
+				ServiceType:  string(sources.ServiceTypeLegacy),
+				EthAddress:   m.ethAddress,
 				OrchURI:      m.orchURI,
 				GPUName:      m.gpuName,
 				GPUGb:        m.gpuGb,
