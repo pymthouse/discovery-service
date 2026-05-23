@@ -10,24 +10,24 @@ type CapabilityEntry struct {
 
 // DatasetRow is the canonical materialized orchestrator row per capability.
 type DatasetRow struct {
-	ServiceType       string   `json:"serviceType,omitempty"`
-	EthAddress        string   `json:"ethAddress,omitempty"`
-	OfferingID        string   `json:"offeringId,omitempty"`
-	InteractionMode   string   `json:"interactionMode,omitempty"`
-	WorkUnit          string   `json:"workUnit,omitempty"`
-	PricePerUnitWei   string   `json:"pricePerUnitWei,omitempty"`
-	OrchURI           string   `json:"orchUri"`
-	GPUName      string   `json:"gpuName"`
-	GPUGb        float64  `json:"gpuGb"`
-	Avail        float64  `json:"avail"`
-	TotalCap     float64  `json:"totalCap"`
-	PricePerUnit float64  `json:"pricePerUnit"`
-	BestLatMs    *float64 `json:"bestLatMs"`
-	AvgLatMs     *float64 `json:"avgLatMs"`
-	SwapRatio    *float64 `json:"swapRatio"`
-	AvgAvail     *float64 `json:"avgAvail"`
-	Score        float64  `json:"score,omitempty"`
-	SLAScore     *float64 `json:"slaScore,omitempty"`
+	ServiceType     string   `json:"serviceType,omitempty"`
+	EthAddress      string   `json:"ethAddress,omitempty"`
+	OfferingID      string   `json:"offeringId,omitempty"`
+	InteractionMode string   `json:"interactionMode,omitempty"`
+	WorkUnit        string   `json:"workUnit,omitempty"`
+	PricePerUnitWei string   `json:"pricePerUnitWei,omitempty"`
+	OrchURI         string   `json:"orchUri"`
+	GPUName         string   `json:"gpuName"`
+	GPUGb           float64  `json:"gpuGb"`
+	Avail           float64  `json:"avail"`
+	TotalCap        float64  `json:"totalCap"`
+	PricePerUnit    float64  `json:"pricePerUnit"`
+	BestLatMs       *float64 `json:"bestLatMs"`
+	AvgLatMs        *float64 `json:"avgLatMs"`
+	SwapRatio       *float64 `json:"swapRatio"`
+	AvgAvail        *float64 `json:"avgAvail"`
+	Score           float64  `json:"score,omitempty"`
+	SLAScore        *float64 `json:"slaScore,omitempty"`
 }
 
 // Filters are client-supplied query constraints (no persisted plans).

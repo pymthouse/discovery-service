@@ -7,13 +7,13 @@ import (
 
 // RegistryOfferingRow is one capability/offering tuple from an on-chain manifest.
 type RegistryOfferingRow struct {
-	EthAddress        string
-	WorkerURL         string
-	CapabilityID      string
-	OfferingID        string
-	InteractionMode   string
-	WorkUnit          string
-	PricePerUnitWei   string
+	EthAddress      string
+	WorkerURL       string
+	CapabilityID    string
+	OfferingID      string
+	InteractionMode string
+	WorkUnit        string
+	PricePerUnitWei string
 }
 
 type v3Manifest struct {
@@ -148,13 +148,13 @@ func parseCoordinatorManifestRows(body []byte) []RegistryOfferingRow {
 		}
 		workUnit := strings.TrimSpace(tuple.WorkUnit.Name)
 		out = append(out, RegistryOfferingRow{
-			EthAddress:        eth,
-			WorkerURL:         worker,
-			CapabilityID:      capID,
-			OfferingID:        offID,
-			InteractionMode:   strings.TrimSpace(tuple.InteractionMode),
-			WorkUnit:          workUnit,
-			PricePerUnitWei:   strings.TrimSpace(tuple.PricePerUnitWei),
+			EthAddress:      eth,
+			WorkerURL:       worker,
+			CapabilityID:    capID,
+			OfferingID:      offID,
+			InteractionMode: strings.TrimSpace(tuple.InteractionMode),
+			WorkUnit:        workUnit,
+			PricePerUnitWei: strings.TrimSpace(tuple.PricePerUnitWei),
 		})
 	}
 	return out

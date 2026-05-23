@@ -21,14 +21,14 @@ func BuildRegistryDataset(rows []sources.NormalizedOrch) map[string][]DatasetRow
 				continue
 			}
 			capabilities[cap] = append(capabilities[cap], DatasetRow{
-				ServiceType:       string(sources.ServiceTypeRegistry),
-				EthAddress:        r.EthAddress,
-				OrchURI:           r.OrchURI,
-				Score:             score,
-				OfferingID:        r.OfferingID,
-				InteractionMode:   r.InteractionMode,
-				WorkUnit:          r.WorkUnit,
-				PricePerUnitWei:   r.PricePerUnitWei,
+				ServiceType:     string(sources.ServiceTypeRegistry),
+				EthAddress:      r.EthAddress,
+				OrchURI:         r.OrchURI,
+				Score:           score,
+				OfferingID:      r.OfferingID,
+				InteractionMode: r.InteractionMode,
+				WorkUnit:        r.WorkUnit,
+				PricePerUnitWei: r.PricePerUnitWei,
 			})
 		}
 	}
