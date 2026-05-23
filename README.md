@@ -116,3 +116,9 @@ go test ./...
 gofmt -l .    # should print nothing
 go vet ./...
 ```
+
+Install the pre-commit hook once per clone (auto-formats staged `.go` files; blocks commits that would fail CI `gofmt`):
+
+```bash
+make hooks
+```
