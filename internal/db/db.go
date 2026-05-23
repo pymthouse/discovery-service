@@ -83,13 +83,13 @@ func (s *Store) LoadSources(ctx context.Context) ([]SourceRow, error) {
 
 // ConfigMeta holds singleton leaderboard config.
 type ConfigMeta struct {
-	LastRefreshedAt         *time.Time
-	LastRefreshedBy         string
-	KnownCapabilities       []string
-	KnownCapabilityEntries  []CapabilityEntry
-	MembershipStrategy      string
-	RefreshIntervalMs       int64
-	DatasetVersion          int64
+	LastRefreshedAt        *time.Time
+	LastRefreshedBy        string
+	KnownCapabilities      []string
+	KnownCapabilityEntries []CapabilityEntry
+	MembershipStrategy     string
+	RefreshIntervalMs      int64
+	DatasetVersion         int64
 }
 
 // GetConfig loads singleton config metadata.
@@ -135,24 +135,24 @@ type CapabilityEntry struct {
 
 // FlatRow is a row to insert into leaderboard_dataset_rows.
 type FlatRow struct {
-	ServiceType       string
-	Capability        string
-	EthAddress        string
-	OrchURI           string
-	OfferingID        string
-	InteractionMode   string
-	WorkUnit          string
-	PricePerUnitWei   string
-	GPUName           string
-	GPUGb             float64
-	Avail             float64
-	TotalCap          float64
-	PricePerUnit      float64
-	BestLatMs         *float64
-	AvgLatMs          *float64
-	SwapRatio         *float64
-	AvgAvail          *float64
-	Score             float64
+	ServiceType     string
+	Capability      string
+	EthAddress      string
+	OrchURI         string
+	OfferingID      string
+	InteractionMode string
+	WorkUnit        string
+	PricePerUnitWei string
+	GPUName         string
+	GPUGb           float64
+	Avail           float64
+	TotalCap        float64
+	PricePerUnit    float64
+	BestLatMs       *float64
+	AvgLatMs        *float64
+	SwapRatio       *float64
+	AvgAvail        *float64
+	Score           float64
 }
 
 const batchSize = 500
