@@ -64,6 +64,15 @@ func extractCapabilityName(raw string) string {
 	return raw
 }
 
+// ExtractCapabilityName returns the bare capability/model name, stripping any
+// "pipeline/" prefix (e.g. "live-video-to-video/streamdiffusion-sdxl" ->
+// "streamdiffusion-sdxl"). Legacy webhook capabilities are materialized under
+// the bare model name, so discovery queries that arrive in pipeline/model form
+// must be normalized to match.
+func ExtractCapabilityName(raw string) string {
+	return extractCapabilityName(strings.TrimSpace(raw))
+}
+
 func normalizeLegacyCapabilityNames(raw string) []string {
 	raw = strings.TrimSpace(raw)
 	if raw == "" {

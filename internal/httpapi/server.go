@@ -200,14 +200,39 @@ func capabilityServiceTypes(r *http.Request) []string {
 }
 
 func rawCapabilityNames(r *http.Request, store *db.Store) ([]string, error) {
+	serviceTypes := capabilityServiceTypes(r)
 	caps := r.URL.Query()["caps"]
 	if len(caps) == 0 {
 		caps = r.URL.Query()["capability"]
 	}
 	if len(caps) > 0 {
-		return caps, nil
+		return normalizeLegacyCaps(caps, serviceTypes), nil
 	}
-	return store.ListCapabilities(r.Context(), capabilityServiceTypes(r))
+	return store.ListCapabilities(r.Context(), serviceTypes)
+}
+
+// normalizeLegacyCaps maps incoming "pipeline/model" capability filters to the
+// bare model names that legacy rows are materialized under, so gateways can
+// reuse the same pipeline/model cap strings they send to orchestrators and
+// signer webhooks. Registry capabilities are opaque IDs and left untouched.
+func normalizeLegacyCaps(caps []string, serviceTypes []string) []string {
+	if !includesLegacyServiceType(serviceTypes) {
+		return caps
+	}
+	out := make([]string, 0, len(caps))
+	for _, c := range caps {
+		out = append(out, sources.ExtractCapabilityName(c))
+	}
+	return out
+}
+
+func includesLegacyServiceType(serviceTypes []string) bool {
+	for _, st := range serviceTypes {
+		if st == string(sources.ServiceTypeLegacy) {
+			return true
+		}
+	}
+	return false
 }
 
 func mergeRawOrchestrators(ctx context.Context, store *db.Store, caps []string, serviceTypes []string) map[string]*rawOrchEntry {
