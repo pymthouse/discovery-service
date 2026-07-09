@@ -3,6 +3,7 @@ package refresh
 import (
 	"context"
 	"encoding/json"
+	"strings"
 	"sync"
 	"time"
 
@@ -96,6 +97,10 @@ func (s *Service) Run(ctx context.Context, refreshedBy string) (discotypes.Refre
 	flat = append(flat, resolverRowsToFlat(legacyRes.Capabilities)...)
 	flat = append(flat, resolverRowsToFlat(registryCaps)...)
 
+	liveRunnerClaims, liveRunnerStats := collectLiveRunnerAppClaims(ctx, s.cfg, perSource)
+	sourceStats[string(sources.KindOrchDiscovery)] = liveRunnerStats
+	flat = append(flat, liveRunnerClaimsToFlat(liveRunnerClaims)...)
+
 	_, capCount, err := s.store.WriteDataset(ctx, flat, refreshedBy)
 	if err != nil {
 		return result, err
@@ -109,6 +114,79 @@ func (s *Service) Run(ctx context.Context, refreshedBy string) (discotypes.Refre
 	result.Orchestrators = legacyRes.Audit.TotalOrchestrators + countRegistryOrchestrators(registryRows)
 	result.DurationMs = time.Since(t0).Milliseconds()
 	return result, nil
+}
+
+func collectLiveRunnerAppClaims(
+	ctx context.Context,
+	cfg config.Config,
+	perSource map[sources.Kind][]sources.NormalizedOrch,
+) ([]sources.LiveRunnerAppClaim, sources.Stats) {
+	signerClaims := liveRunnerClaimsFromRemoteSigner(perSource[sources.KindRemoteSigner])
+	if !cfg.OrchDiscoveryRefreshEnabled {
+		merged := sources.MergeLiveRunnerAppClaims(nil, signerClaims)
+		return merged, sources.Stats{
+			OK:      true,
+			Fetched: len(merged),
+		}
+	}
+
+	orchURIs := sources.CollectOrchURIs(perSource, cfg.OrchDiscoveryMaxOrchestrators)
+	probeClaims, stats := sources.ProbeOrchDiscovery(ctx, orchURIs, sources.ProbeOptionsFromConfig(cfg))
+	merged := sources.MergeLiveRunnerAppClaims(probeClaims, signerClaims)
+	stats.Fetched = len(merged)
+	return merged, stats
+}
+
+func liveRunnerClaimsFromRemoteSigner(rows []sources.NormalizedOrch) []sources.LiveRunnerAppClaim {
+	out := make([]sources.LiveRunnerAppClaim, 0)
+	seen := make(map[string]struct{})
+	for _, r := range rows {
+		orch := strings.TrimRight(strings.TrimSpace(r.OrchURI), "/")
+		if orch == "" {
+			continue
+		}
+		score := r.Score
+		if score == 0 {
+			score = 1
+		}
+		for _, app := range r.LiveRunnerApps {
+			app = strings.TrimSpace(app)
+			if app == "" {
+				continue
+			}
+			key := orch + "\x00" + app
+			if _, ok := seen[key]; ok {
+				continue
+			}
+			seen[key] = struct{}{}
+			out = append(out, sources.LiveRunnerAppClaim{
+				OrchURI: orch,
+				App:     app,
+				Score:   score,
+			})
+		}
+	}
+	return out
+}
+
+func liveRunnerClaimsToFlat(claims []sources.LiveRunnerAppClaim) []db.FlatRow {
+	flat := make([]db.FlatRow, 0, len(claims))
+	for _, c := range claims {
+		if c.OrchURI == "" || c.App == "" {
+			continue
+		}
+		score := c.Score
+		if score == 0 {
+			score = 1
+		}
+		flat = append(flat, db.FlatRow{
+			ServiceType: string(sources.ServiceTypeLegacy),
+			Capability:  c.App,
+			OrchURI:     c.OrchURI,
+			Score:       score,
+		})
+	}
+	return flat
 }
 
 func resolverRowsToFlat(capabilities map[string][]resolver.DatasetRow) []db.FlatRow {

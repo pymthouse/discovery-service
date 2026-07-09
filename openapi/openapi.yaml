@@ -115,11 +115,16 @@ paths:
       summary: Webhook-compatible orchestrator list
       description: |
         Returns `{address, score, capabilities}[]` for go-livepeer gateway `-orchWebhookUrl` compatibility.
+        `caps` accepts classic pipeline/model filters (also matched as bare model names) and
+        live-runner app IDs such as `transcode/ffmpeg` discovered via orch `/discovery` probes.
       operationId: discoveryRaw
       parameters:
         - name: caps
           in: query
-          description: Capability filter (repeat for multiple)
+          description: |
+            Capability or live-runner app filter (repeat for multiple).
+            Legacy pipeline/model values also match bare model names;
+            live-runner apps (e.g. `transcode/ffmpeg`) match exactly.
           schema:
             type: array
             items:

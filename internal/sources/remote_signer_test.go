@@ -39,3 +39,15 @@ func TestRemoteSigner_DisabledWithoutURL(t *testing.T) {
 		t.Fatalf("expected 0 rows, got %d", res.Stats.Fetched)
 	}
 }
+
+func TestLiveRunnerAppsFromRunners(t *testing.T) {
+	got := liveRunnerAppsFromRunners([]orchDiscoveryRunner{
+		{URL: "https://r1", App: "transcode/ffmpeg"},
+		{URL: "https://r2", App: "transcode/ffmpeg"},
+		{URL: "", App: "ignored"},
+		{URL: "https://r3", App: "vllm/llama"},
+	})
+	if len(got) != 2 || got[0] != "transcode/ffmpeg" || got[1] != "vllm/llama" {
+		t.Fatalf("unexpected apps: %#v", got)
+	}
+}
