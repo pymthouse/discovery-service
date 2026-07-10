@@ -13,6 +13,11 @@ import (
 type Config struct {
 	HTTPAddr string
 
+	// PublicBaseURL is the externally reachable origin for OpenAPI/Scalar docs
+	// derived from Railway's trusted RAILWAY_PUBLIC_DOMAIN setting. It is never
+	// derived from request Host headers.
+	PublicBaseURL string
+
 	DatabaseURL string
 	RedisURL    string
 
@@ -60,7 +65,8 @@ func Load() Config {
 	}
 
 	return Config{
-		HTTPAddr: httpListenAddr(),
+		HTTPAddr:      httpListenAddr(),
+		PublicBaseURL: railwayPublicBaseURL(),
 
 		DatabaseURL: databaseURL,
 		RedisURL:    env("REDIS_URL", ""),
@@ -145,6 +151,16 @@ func httpListenAddr() string {
 		return ":" + port
 	}
 	return ":8088"
+}
+
+// railwayPublicBaseURL returns the trusted Railway public origin for API docs.
+// Empty string preserves the embedded local-development servers list.
+func railwayPublicBaseURL() string {
+	domain := strings.TrimSpace(os.Getenv("RAILWAY_PUBLIC_DOMAIN"))
+	if domain == "" {
+		return ""
+	}
+	return (&url.URL{Scheme: "https", Host: domain}).String()
 }
 
 func env(key, def string) string {

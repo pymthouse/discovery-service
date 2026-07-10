@@ -42,3 +42,21 @@ func TestLoadBuildsPostgresURLFromDiscreteEnv(t *testing.T) {
 		t.Fatalf("unexpected built DATABASE_URL: %q", cfg.DatabaseURL)
 	}
 }
+
+func TestLoadUsesRailwayPublicDomain(t *testing.T) {
+	t.Setenv("RAILWAY_PUBLIC_DOMAIN", "discovery-us.up.railway.app")
+
+	cfg := Load()
+	if cfg.PublicBaseURL != "https://discovery-us.up.railway.app" {
+		t.Fatalf("PublicBaseURL = %q, want railway https origin", cfg.PublicBaseURL)
+	}
+}
+
+func TestLoadLeavesPublicBaseURLEmptyOutsideRailway(t *testing.T) {
+	t.Setenv("RAILWAY_PUBLIC_DOMAIN", "")
+
+	cfg := Load()
+	if cfg.PublicBaseURL != "" {
+		t.Fatalf("PublicBaseURL = %q, want empty for local default", cfg.PublicBaseURL)
+	}
+}

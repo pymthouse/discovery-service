@@ -95,6 +95,8 @@ REFRESH_ON_STARTUP=false
 
 Set `REFRESH_ON_STARTUP=false` so 3 replicas do not all refresh on boot; use the cron service instead.
 
+Railway's built-in `RAILWAY_PUBLIC_DOMAIN` rewrites the OpenAPI `servers` entry served at `/openapi.yaml` (used by Scalar). The hostname is never taken from request headers. Outside Railway, the embedded `http://localhost:8088` server remains.
+
 ### Service: `apache` (public)
 
 | Setting | Value |
