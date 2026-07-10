@@ -80,6 +80,36 @@ func CollectOrchURIs(perSource map[Kind][]NormalizedOrch, max int) []string {
 	return out
 }
 
+// AppendOrchURIs appends unique orchestrator URIs up to max total entries.
+func AppendOrchURIs(existing, extra []string, max int) []string {
+	if len(extra) == 0 {
+		return existing
+	}
+	seen := make(map[string]struct{}, len(existing)+len(extra))
+	out := make([]string, 0, len(existing)+len(extra))
+	add := func(uri string) {
+		uri = strings.TrimRight(strings.TrimSpace(uri), "/")
+		if uri == "" {
+			return
+		}
+		if _, ok := seen[uri]; ok {
+			return
+		}
+		seen[uri] = struct{}{}
+		out = append(out, uri)
+	}
+	for _, uri := range existing {
+		add(uri)
+	}
+	for _, uri := range extra {
+		add(uri)
+		if max > 0 && len(out) >= max {
+			return out
+		}
+	}
+	return out
+}
+
 // ParseOrchDiscoveryBody extracts live-runner app claims from a /discovery JSON body.
 func ParseOrchDiscoveryBody(body []byte, fallbackURI string) []LiveRunnerAppClaim {
 	var entries []orchDiscoveryEntry

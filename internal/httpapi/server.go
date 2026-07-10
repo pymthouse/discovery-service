@@ -244,8 +244,8 @@ func normalizeLegacyCaps(caps []string, serviceTypes []string) []string {
 }
 
 func includesLegacyServiceType(serviceTypes []string) bool {
-	for _, st := range serviceTypes {
-		if st == string(sources.ServiceTypeLegacy) {
+	for _, st := range sources.ParseServiceTypes(serviceTypes) {
+		if st == sources.ServiceTypeLegacy {
 			return true
 		}
 	}

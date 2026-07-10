@@ -20,6 +20,8 @@ During refresh, discovery-service also probes each known orchestrator's `GET /di
 for live-runner apps (`ORCH_DISCOVERY_*`). App IDs (e.g. `transcode/ffmpeg`) are
 materialized as capabilities so `/v1/discovery/raw?caps=transcode/ffmpeg` returns
 matching orch addresses. Clients then fan out to each orch's `/discovery` for runners.
+Set `ORCH_DISCOVERY_EXTRA_URIS` to always probe gateway orchs that advertise
+live-runner apps but are not yet in subgraph/ClickHouse/discover sources.
 These probes skip TLS certificate verification (self-signed / hostname-mismatched orch
 certs are common); other HTTP sources still verify TLS normally.
 

@@ -131,6 +131,7 @@ func collectLiveRunnerAppClaims(
 	}
 
 	orchURIs := sources.CollectOrchURIs(perSource, cfg.OrchDiscoveryMaxOrchestrators)
+	orchURIs = sources.AppendOrchURIs(orchURIs, cfg.OrchDiscoveryExtraURIs, cfg.OrchDiscoveryMaxOrchestrators)
 	probeClaims, stats := sources.ProbeOrchDiscovery(ctx, orchURIs, sources.ProbeOptionsFromConfig(cfg))
 	merged := sources.MergeLiveRunnerAppClaims(probeClaims, signerClaims)
 	stats.Fetched = len(merged)
