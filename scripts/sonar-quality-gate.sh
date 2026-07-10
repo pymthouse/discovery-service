@@ -19,8 +19,8 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 
-SONAR_ORGANIZATION="${SONAR_ORGANIZATION:-eliteprox}"
-SONAR_PROJECT_KEY="${SONAR_PROJECT_KEY:-eliteprox_discovery-service}"
+SONAR_ORGANIZATION="${SONAR_ORGANIZATION:-pymthouse}"
+SONAR_PROJECT_KEY="${SONAR_PROJECT_KEY:-pymthouse_discovery-service}"
 SONAR_HOST_URL="${SONAR_HOST_URL:-https://sonarcloud.io}"
 
 if [[ -z "${SONAR_TOKEN:-}" ]]; then
