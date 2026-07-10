@@ -2,8 +2,11 @@ package sources
 
 import (
 	"context"
+	"crypto/tls"
 	"encoding/json"
 	"fmt"
+	"io"
+	"net/http"
 	"net/url"
 	"strings"
 	"sync"
@@ -149,8 +152,46 @@ type ProbeOrchDiscoveryOptions struct {
 	MaxConcurrency int
 }
 
+// orchDiscoveryHTTPClient builds a client for probing orchestrator /discovery.
+// Orchestrators commonly use self-signed or hostname-mismatched TLS certs, so
+// verification is skipped for this probe path only.
+func orchDiscoveryHTTPClient(timeout time.Duration) *http.Client {
+	if timeout <= 0 {
+		timeout = 5 * time.Second
+	}
+	return &http.Client{
+		Timeout: timeout,
+		Transport: &http.Transport{
+			TLSClientConfig: &tls.Config{
+				InsecureSkipVerify: true, //nolint:gosec // orch nodes often use self-signed certs
+			},
+		},
+	}
+}
+
+func httpGetOrchDiscovery(ctx context.Context, client *http.Client, url string) ([]byte, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return nil, err
+	}
+	res, err := client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = res.Body.Close() }()
+	body, err := io.ReadAll(res.Body)
+	if err != nil {
+		return nil, err
+	}
+	if res.StatusCode < 200 || res.StatusCode >= 300 {
+		return nil, fmt.Errorf("HTTP %d: %s", res.StatusCode, truncate(string(body), 200))
+	}
+	return body, nil
+}
+
 // ProbeOrchDiscovery GETs each orch's /discovery and returns app claims.
 // Soft-fails per URI; never fails the overall call.
+// TLS certificate verification is skipped so self-signed orch endpoints still work.
 func ProbeOrchDiscovery(ctx context.Context, orchURIs []string, opts ProbeOrchDiscoveryOptions) ([]LiveRunnerAppClaim, Stats) {
 	start := time.Now()
 	if len(orchURIs) == 0 {
@@ -165,6 +206,7 @@ func ProbeOrchDiscovery(ctx context.Context, orchURIs []string, opts ProbeOrchDi
 	if concurrency <= 0 {
 		concurrency = 25
 	}
+	client := orchDiscoveryHTTPClient(timeout)
 
 	sem := make(chan struct{}, concurrency)
 	var mu sync.Mutex
@@ -185,7 +227,7 @@ func ProbeOrchDiscovery(ctx context.Context, orchURIs []string, opts ProbeOrchDi
 			sem <- struct{}{}
 			defer func() { <-sem }()
 
-			body, err := httpGetTimeout(ctx, discoveryURL, nil, timeout)
+			body, err := httpGetOrchDiscovery(ctx, client, discoveryURL)
 			if err != nil {
 				mu.Lock()
 				errCount++

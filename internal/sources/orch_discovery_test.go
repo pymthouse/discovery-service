@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -167,4 +168,34 @@ func TestProbeOrchDiscoveryDefaults(t *testing.T) {
 	if claims != nil || stats.Fetched != 0 || !stats.OK {
 		t.Fatalf("empty input should short-circuit: claims=%#v stats=%#v", claims, stats)
 	}
+}
+
+func TestProbeOrchDiscoveryAcceptsInvalidTLS(t *testing.T) {
+	srv := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/discovery" {
+			http.NotFound(w, r)
+			return
+		}
+		_, _ = fmt.Fprintf(w, `[{"address":"%s","runners":[{"url":"http://runner/a","app":"transcode/ffmpeg"}]}]`, strings.TrimRight(srvURL(r), "/"))
+	}))
+	defer srv.Close()
+
+	claims, stats := ProbeOrchDiscovery(context.Background(), []string{
+		srv.URL,
+	}, ProbeOrchDiscoveryOptions{TimeoutMs: 2000, MaxConcurrency: 1})
+	if len(claims) != 1 || claims[0].App != "transcode/ffmpeg" {
+		t.Fatalf("expected claim despite invalid TLS, got %#v (stats=%#v)", claims, stats)
+	}
+	if stats.ErrorMessage != "" {
+		t.Fatalf("unexpected probe error: %s", stats.ErrorMessage)
+	}
+}
+
+// srvURL rebuilds the request's base URL for JSON address fields in TLS tests.
+func srvURL(r *http.Request) string {
+	scheme := "http"
+	if r.TLS != nil {
+		scheme = "https"
+	}
+	return scheme + "://" + r.Host
 }
