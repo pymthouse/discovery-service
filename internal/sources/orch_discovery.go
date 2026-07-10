@@ -3,6 +3,7 @@ package sources
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/url"
 	"strings"
 	"sync"
@@ -170,6 +171,7 @@ func ProbeOrchDiscovery(ctx context.Context, orchURIs []string, opts ProbeOrchDi
 	var wg sync.WaitGroup
 	claims := make([]LiveRunnerAppClaim, 0)
 	var errCount int
+	var probed int
 
 	for _, uri := range orchURIs {
 		uri := uri
@@ -184,17 +186,20 @@ func ProbeOrchDiscovery(ctx context.Context, orchURIs []string, opts ProbeOrchDi
 			defer func() { <-sem }()
 
 			body, err := httpGetTimeout(ctx, discoveryURL, nil, timeout)
-			mu.Lock()
-			defer mu.Unlock()
 			if err != nil {
+				mu.Lock()
 				errCount++
+				probed++
+				mu.Unlock()
 				return
 			}
 			parsed := ParseOrchDiscoveryBody(body, uri)
-			if len(parsed) == 0 {
-				return
+			mu.Lock()
+			probed++
+			if len(parsed) > 0 {
+				claims = append(claims, parsed...)
 			}
-			claims = append(claims, parsed...)
+			mu.Unlock()
 		}()
 	}
 	wg.Wait()
@@ -206,7 +211,15 @@ func ProbeOrchDiscovery(ctx context.Context, orchURIs []string, opts ProbeOrchDi
 		DurationMs: elapsedMs(start),
 	}
 	if errCount > 0 && len(merged) == 0 {
-		stats.ErrorMessage = "all orch /discovery probes failed"
+		if probed > 0 && errCount == probed {
+			stats.ErrorMessage = fmt.Sprintf("all %d orch /discovery probes failed", errCount)
+		} else {
+			stats.ErrorMessage = fmt.Sprintf(
+				"%d/%d orch /discovery probes failed and no claims collected",
+				errCount,
+				probed,
+			)
+		}
 	}
 	return merged, stats
 }

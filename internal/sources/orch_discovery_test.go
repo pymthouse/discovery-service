@@ -1,7 +1,15 @@
 package sources
 
 import (
+	"context"
+	"fmt"
+	"net/http"
+	"net/http/httptest"
+	"sync/atomic"
 	"testing"
+	"time"
+
+	"github.com/livepeer/discovery-service/internal/config"
 )
 
 func TestOrchDiscoveryURL(t *testing.T) {
@@ -89,5 +97,74 @@ func TestMergeLiveRunnerAppClaimsPrefersProbe(t *testing.T) {
 	}
 	if got[1].OrchURI != "https://b" {
 		t.Fatalf("expected fallback-only claim: %#v", got[1])
+	}
+}
+
+func TestProbeOptionsFromConfig(t *testing.T) {
+	got := ProbeOptionsFromConfig(config.Config{
+		OrchDiscoveryTimeoutMs:      1234,
+		OrchDiscoveryMaxConcurrency: 7,
+	})
+	if got.TimeoutMs != 1234 || got.MaxConcurrency != 7 {
+		t.Fatalf("unexpected options: %#v", got)
+	}
+}
+
+func TestProbeOrchDiscoveryCollectsClaimsAndSoftFails(t *testing.T) {
+	var hits atomic.Int32
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		hits.Add(1)
+		switch r.URL.Path {
+		case "/ok/discovery":
+			_, _ = fmt.Fprintf(w, `[{"address":"http://%s/ok","runners":[{"url":"http://runner/a","app":"transcode/ffmpeg"}]}]`, r.Host)
+		case "/empty/discovery":
+			_, _ = w.Write([]byte(`[{"address":"http://empty","runners":[]}]`))
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer srv.Close()
+
+	claims, stats := ProbeOrchDiscovery(context.Background(), []string{
+		srv.URL + "/ok",
+		srv.URL + "/empty",
+		srv.URL + "/missing",
+		"not-a-url",
+	}, ProbeOrchDiscoveryOptions{TimeoutMs: 2000, MaxConcurrency: 2})
+	if hits.Load() != 3 {
+		t.Fatalf("expected 3 HTTP probes, got %d", hits.Load())
+	}
+	if len(claims) != 1 || claims[0].App != "transcode/ffmpeg" {
+		t.Fatalf("unexpected claims: %#v", claims)
+	}
+	if stats.Fetched != 1 || stats.ErrorMessage != "" {
+		t.Fatalf("unexpected stats: %#v", stats)
+	}
+}
+
+func TestProbeOrchDiscoveryAllFailedMessage(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Error(w, "down", http.StatusServiceUnavailable)
+	}))
+	defer srv.Close()
+
+	claims, stats := ProbeOrchDiscovery(context.Background(), []string{
+		srv.URL + "/a",
+		srv.URL + "/b",
+	}, ProbeOrchDiscoveryOptions{TimeoutMs: 1000, MaxConcurrency: 2})
+	if len(claims) != 0 {
+		t.Fatalf("expected no claims, got %#v", claims)
+	}
+	if stats.ErrorMessage == "" {
+		t.Fatal("expected error message when all probes fail")
+	}
+}
+
+func TestProbeOrchDiscoveryDefaults(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
+	defer cancel()
+	claims, stats := ProbeOrchDiscovery(ctx, nil, ProbeOrchDiscoveryOptions{})
+	if claims != nil || stats.Fetched != 0 || !stats.OK {
+		t.Fatalf("empty input should short-circuit: claims=%#v stats=%#v", claims, stats)
 	}
 }

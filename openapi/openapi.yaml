@@ -123,8 +123,9 @@ paths:
           in: query
           description: |
             Capability or live-runner app filter (repeat for multiple).
-            Legacy pipeline/model values also match bare model names;
-            live-runner apps (e.g. `transcode/ffmpeg`) match exactly.
+            Legacy pipeline/model values also match bare model names.
+            Live-runner app IDs (e.g. `transcode/ffmpeg`) are matched exactly
+            and also matched by their bare app name (e.g. `ffmpeg`).
           schema:
             type: array
             items:
