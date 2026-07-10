@@ -121,3 +121,25 @@ func TestCollectLiveRunnerAppClaimsProbePrefersOverSigner(t *testing.T) {
 		t.Fatalf("expected probe+signer apps, got %#v", claims)
 	}
 }
+
+func TestCollectLiveRunnerAppClaimsExtraURIs(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/orch/discovery" {
+			http.NotFound(w, r)
+			return
+		}
+		_, _ = fmt.Fprintf(w, `[{"address":"http://%s/orch","runners":[{"url":"http://r","app":"transcode/ffmpeg"}]}]`, r.Host)
+	}))
+	defer srv.Close()
+
+	claims, stats := collectLiveRunnerAppClaims(context.Background(), config.Config{
+		OrchDiscoveryRefreshEnabled:   true,
+		OrchDiscoveryTimeoutMs:        2000,
+		OrchDiscoveryMaxConcurrency:   2,
+		OrchDiscoveryMaxOrchestrators: 10,
+		OrchDiscoveryExtraURIs:        []string{srv.URL + "/orch"},
+	}, nil)
+	if !stats.OK || len(claims) != 1 || claims[0].App != "transcode/ffmpeg" {
+		t.Fatalf("claims=%#v stats=%#v", claims, stats)
+	}
+}

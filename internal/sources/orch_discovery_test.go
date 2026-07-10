@@ -83,6 +83,28 @@ func TestCollectOrchURIs(t *testing.T) {
 	}
 }
 
+func TestAppendOrchURIs(t *testing.T) {
+	got := AppendOrchURIs(
+		[]string{"https://a.example", "https://b.example"},
+		[]string{"https://b.example/", "https://c.example", ""},
+		0,
+	)
+	want := []string{"https://a.example", "https://b.example", "https://c.example"}
+	if len(got) != len(want) {
+		t.Fatalf("got %#v, want %#v", got, want)
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Fatalf("got[%d] = %q, want %q", i, got[i], want[i])
+		}
+	}
+
+	limited := AppendOrchURIs([]string{"https://a.example"}, []string{"https://b.example", "https://c.example"}, 2)
+	if len(limited) != 2 || limited[1] != "https://b.example" {
+		t.Fatalf("expected max 2 with extras, got %#v", limited)
+	}
+}
+
 func TestMergeLiveRunnerAppClaimsPrefersProbe(t *testing.T) {
 	preferred := []LiveRunnerAppClaim{{OrchURI: "https://a", App: "transcode/ffmpeg", Score: 1}}
 	fallback := []LiveRunnerAppClaim{

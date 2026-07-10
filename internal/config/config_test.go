@@ -60,3 +60,27 @@ func TestLoadLeavesPublicBaseURLEmptyOutsideRailway(t *testing.T) {
 		t.Fatalf("PublicBaseURL = %q, want empty for local default", cfg.PublicBaseURL)
 	}
 }
+
+func TestLoadOrchDiscoveryExtraURIs(t *testing.T) {
+	t.Setenv("ORCH_DISCOVERY_EXTRA_URIS", "http://154.61.61.108:8787, https://kiloutcorp.link:11111;,http://154.61.61.108:8787")
+
+	cfg := Load()
+	want := []string{"http://154.61.61.108:8787", "https://kiloutcorp.link:11111"}
+	if len(cfg.OrchDiscoveryExtraURIs) != len(want) {
+		t.Fatalf("OrchDiscoveryExtraURIs = %#v, want %#v", cfg.OrchDiscoveryExtraURIs, want)
+	}
+	for i := range want {
+		if cfg.OrchDiscoveryExtraURIs[i] != want[i] {
+			t.Fatalf("OrchDiscoveryExtraURIs[%d] = %q, want %q", i, cfg.OrchDiscoveryExtraURIs[i], want[i])
+		}
+	}
+}
+
+func TestLoadOrchDiscoveryExtraURIsEmpty(t *testing.T) {
+	t.Setenv("ORCH_DISCOVERY_EXTRA_URIS", "")
+
+	cfg := Load()
+	if cfg.OrchDiscoveryExtraURIs != nil {
+		t.Fatalf("OrchDiscoveryExtraURIs = %#v, want nil", cfg.OrchDiscoveryExtraURIs)
+	}
+}

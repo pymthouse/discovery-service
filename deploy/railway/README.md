@@ -90,6 +90,9 @@ SUBGRAPH_ID=FE63YgkzcpVocxdCEyEYbvjYqEf2kb1A6daMYRxmejYC
 DISCOVER_API_URL=https://naap-api.cloudspe.com/v1/discover/orchestrators
 PRICING_API_URL=
 REMOTE_SIGNER_URL=
+# Live-runner gateway orchs not yet in subgraph/ClickHouse/discover sources.
+# Keep this set in Railway shared/service variables for discoveryd.
+ORCH_DISCOVERY_EXTRA_URIS=http://154.61.61.108:8787,https://kiloutcorp.link:11111
 REFRESH_ON_STARTUP=false
 ```
 

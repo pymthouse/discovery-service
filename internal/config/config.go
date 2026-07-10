@@ -51,6 +51,7 @@ type Config struct {
 	OrchDiscoveryTimeoutMs        int64
 	OrchDiscoveryMaxConcurrency   int
 	OrchDiscoveryMaxOrchestrators int
+	OrchDiscoveryExtraURIs        []string
 
 	AIServiceRegistryRPCURL  string
 	AIServiceRegistryAddress string
@@ -101,6 +102,7 @@ func Load() Config {
 		OrchDiscoveryTimeoutMs:        envInt64("ORCH_DISCOVERY_TIMEOUT_MS", 5000),
 		OrchDiscoveryMaxConcurrency:   envInt("ORCH_DISCOVERY_MAX_CONCURRENCY", 25),
 		OrchDiscoveryMaxOrchestrators: envInt("ORCH_DISCOVERY_MAX_ORCHESTRATORS", 1000),
+		OrchDiscoveryExtraURIs:        envCSV("ORCH_DISCOVERY_EXTRA_URIS"),
 
 		AIServiceRegistryRPCURL:  env("AI_SERVICE_REGISTRY_RPC_URL", "https://arb1.arbitrum.io/rpc"),
 		AIServiceRegistryAddress: env("AI_SERVICE_REGISTRY_ADDRESS", "0x04C0b249740175999E5BF5c9ac1dA92431EF34C5"),
@@ -186,4 +188,31 @@ func envInt64(key string, def int64) int64 {
 		}
 	}
 	return def
+}
+
+func envCSV(key string) []string {
+	raw := strings.TrimSpace(os.Getenv(key))
+	if raw == "" {
+		return nil
+	}
+	parts := strings.FieldsFunc(raw, func(r rune) bool {
+		return r == ',' || r == '\n' || r == ';'
+	})
+	out := make([]string, 0, len(parts))
+	seen := make(map[string]struct{}, len(parts))
+	for _, part := range parts {
+		part = strings.TrimSpace(part)
+		if part == "" {
+			continue
+		}
+		if _, ok := seen[part]; ok {
+			continue
+		}
+		seen[part] = struct{}{}
+		out = append(out, part)
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
 }

@@ -37,6 +37,22 @@ jobs:
       - name: Unit tests
         run: go test -race -count=1 ./...
 
+      - name: Require ORCH_DISCOVERY_EXTRA_URIS in Railway deploy docs
+        run: |
+          set -euo pipefail
+          file=deploy/railway/README.md
+          line=$(grep -E '^ORCH_DISCOVERY_EXTRA_URIS=' "$file" || true)
+          if [ -z "$line" ]; then
+            echo "missing ORCH_DISCOVERY_EXTRA_URIS= in $file"
+            exit 1
+          fi
+          value=${line#ORCH_DISCOVERY_EXTRA_URIS=}
+          if [ -z "$value" ]; then
+            echo "ORCH_DISCOVERY_EXTRA_URIS must be non-empty in $file so production probes stay documented"
+            exit 1
+          fi
+          echo "ok: $line"
+
       - name: golangci-lint
         uses: golangci/golangci-lint-action@ba0d7d2ec06a0ea1cb5fa41b2e4a3ab91d21278a # v9.3.0
         with:
