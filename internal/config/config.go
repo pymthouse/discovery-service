@@ -13,6 +13,11 @@ import (
 type Config struct {
 	HTTPAddr string
 
+	// PublicBaseURL is the externally reachable origin for OpenAPI/Scalar docs
+	// (e.g. https://discovery.example.com). Resolved from PUBLIC_BASE_URL or
+	// Railway's RAILWAY_PUBLIC_DOMAIN — never from request Host headers.
+	PublicBaseURL string
+
 	DatabaseURL string
 	RedisURL    string
 
@@ -60,7 +65,8 @@ func Load() Config {
 	}
 
 	return Config{
-		HTTPAddr: httpListenAddr(),
+		HTTPAddr:      httpListenAddr(),
+		PublicBaseURL: resolvePublicBaseURL(),
 
 		DatabaseURL: databaseURL,
 		RedisURL:    env("REDIS_URL", ""),
@@ -145,6 +151,46 @@ func httpListenAddr() string {
 		return ":" + port
 	}
 	return ":8088"
+}
+
+// resolvePublicBaseURL returns the trusted public origin for API docs.
+// Prefer an explicit PUBLIC_BASE_URL; on Railway fall back to
+// https://$RAILWAY_PUBLIC_DOMAIN. Request headers are never consulted.
+func resolvePublicBaseURL() string {
+	if v := strings.TrimSpace(os.Getenv("PUBLIC_BASE_URL")); v != "" {
+		return normalizePublicBaseURL(v)
+	}
+	if domain := strings.TrimSpace(os.Getenv("RAILWAY_PUBLIC_DOMAIN")); domain != "" {
+		return normalizePublicBaseURL("https://" + domain)
+	}
+	return ""
+}
+
+// normalizePublicBaseURL validates and canonicalizes a public origin.
+// Empty string means "leave the embedded OpenAPI servers as-is" (local dev).
+func normalizePublicBaseURL(raw string) string {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return ""
+	}
+	u, err := url.Parse(raw)
+	if err != nil || u.Scheme == "" || u.Host == "" {
+		return ""
+	}
+	scheme := strings.ToLower(u.Scheme)
+	if scheme != "http" && scheme != "https" {
+		return ""
+	}
+	// Reject credentials in the URL (defense in depth).
+	if u.User != nil {
+		return ""
+	}
+	// Origin only: drop query/fragment; keep path if present (trim trailing slash).
+	path := strings.TrimRight(u.EscapedPath(), "/")
+	if path == "/" {
+		path = ""
+	}
+	return scheme + "://" + u.Host + path
 }
 
 func env(key, def string) string {

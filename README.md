@@ -37,6 +37,8 @@ When the service is running, open the home page for interactive docs:
 - **http://localhost:8088/** → redirects to Scalar UI at `/docs`
 - **http://localhost:8088/openapi.yaml** → OpenAPI 3.1 spec
 
+In production, set `PUBLIC_BASE_URL` (or rely on Railway’s `RAILWAY_PUBLIC_DOMAIN`) so Scalar’s server URL is the real public hostname instead of `localhost`. This value comes from config only — never from request `Host` headers.
+
 ## Production deployment (Railway HA)
 
 See **[deploy/railway/README.md](deploy/railway/README.md)** for multi-region Railway deployment with:
