@@ -1,7 +1,6 @@
 package httpapi
 
 import (
-	"bytes"
 	"fmt"
 	"net/http"
 	"regexp"
@@ -51,17 +50,5 @@ func rewriteOpenAPIServers(spec []byte, baseURL string) []byte {
 		"servers:\n  - url: %q\n    description: Current deployment\n",
 		baseURL,
 	)
-	if openAPIServersBlock.Match(spec) {
-		return openAPIServersBlock.ReplaceAll(spec, []byte(block))
-	}
-	// Spec missing a servers block — insert after the info section's trailing newline
-	// by prepending after the first document key if needed.
-	if idx := bytes.Index(spec, []byte("\npaths:")); idx >= 0 {
-		out := make([]byte, 0, len(spec)+len(block)+1)
-		out = append(out, spec[:idx+1]...)
-		out = append(out, block...)
-		out = append(out, spec[idx+1:]...)
-		return out
-	}
-	return append(append([]byte{}, block...), spec...)
+	return openAPIServersBlock.ReplaceAll(spec, []byte(block))
 }

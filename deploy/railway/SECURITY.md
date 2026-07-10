@@ -21,7 +21,6 @@ Railway / Neon secrets (never commit):
 | `DATABASE_URL` | discoveryd | Neon pooled URL, `sslmode=require` |
 | `CLICKHOUSE_PASSWORD` | discoveryd | ClickHouse Cloud credential |
 | `REDIS_URL` | discoveryd | Optional query cache |
-| `PUBLIC_BASE_URL` | discoveryd | Public `https://…` origin for Scalar/OpenAPI servers (not a secret). Prefer Cloudflare/custom domain or `https://${{apache.RAILWAY_PUBLIC_DOMAIN}}`. Never derive from request `Host` / `X-Forwarded-*`. |
 
 Rotate `CRON_SECRET` by generating a new value, updating Railway shared variables for **discoveryd** and **cron**, then redeploying both services.
 

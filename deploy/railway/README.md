@@ -75,11 +75,6 @@ In each project, create **three services** from the same GitHub repo:
 
 ```env
 HTTP_ADDR=:8088
-# Public origin shown in Scalar/OpenAPI docs. discoveryd is private, so set this
-# to the Cloudflare hostname or the Apache public domain — do not rely on Host
-# headers. Example referencing Apache's Railway domain:
-# PUBLIC_BASE_URL=https://${{apache.RAILWAY_PUBLIC_DOMAIN}}
-PUBLIC_BASE_URL=https://discovery.example.com
 DATABASE_URL=<neon-primary-pooled-url>
 REDIS_URL=<optional-upstash-redis-url>
 CRON_SECRET=<random-32+-chars>
@@ -100,7 +95,7 @@ REFRESH_ON_STARTUP=false
 
 Set `REFRESH_ON_STARTUP=false` so 3 replicas do not all refresh on boot; use the cron service instead.
 
-`PUBLIC_BASE_URL` rewrites the OpenAPI `servers` entry served at `/openapi.yaml` (used by Scalar). If unset and the service has a Railway public domain, `https://$RAILWAY_PUBLIC_DOMAIN` is used. Locally, with neither set, the embedded `http://localhost:8088` server remains.
+Railway's built-in `RAILWAY_PUBLIC_DOMAIN` rewrites the OpenAPI `servers` entry served at `/openapi.yaml` (used by Scalar). The hostname is never taken from request headers. Outside Railway, the embedded `http://localhost:8088` server remains.
 
 ### Service: `apache` (public)
 

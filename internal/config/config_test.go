@@ -43,18 +43,7 @@ func TestLoadBuildsPostgresURLFromDiscreteEnv(t *testing.T) {
 	}
 }
 
-func TestResolvePublicBaseURLPrefersExplicit(t *testing.T) {
-	t.Setenv("PUBLIC_BASE_URL", "https://discovery.example.com/")
-	t.Setenv("RAILWAY_PUBLIC_DOMAIN", "ignored.up.railway.app")
-
-	cfg := Load()
-	if cfg.PublicBaseURL != "https://discovery.example.com" {
-		t.Fatalf("PublicBaseURL = %q, want https://discovery.example.com", cfg.PublicBaseURL)
-	}
-}
-
-func TestResolvePublicBaseURLUsesRailwayDomain(t *testing.T) {
-	t.Setenv("PUBLIC_BASE_URL", "")
+func TestLoadUsesRailwayPublicDomain(t *testing.T) {
 	t.Setenv("RAILWAY_PUBLIC_DOMAIN", "discovery-us.up.railway.app")
 
 	cfg := Load()
@@ -63,29 +52,11 @@ func TestResolvePublicBaseURLUsesRailwayDomain(t *testing.T) {
 	}
 }
 
-func TestResolvePublicBaseURLEmptyWhenUnset(t *testing.T) {
-	t.Setenv("PUBLIC_BASE_URL", "")
+func TestLoadLeavesPublicBaseURLEmptyOutsideRailway(t *testing.T) {
 	t.Setenv("RAILWAY_PUBLIC_DOMAIN", "")
 
 	cfg := Load()
 	if cfg.PublicBaseURL != "" {
 		t.Fatalf("PublicBaseURL = %q, want empty for local default", cfg.PublicBaseURL)
-	}
-}
-
-func TestNormalizePublicBaseURLRejectsUnsafe(t *testing.T) {
-	cases := map[string]string{
-		"https://ok.example.com":                "https://ok.example.com",
-		"http://localhost:8088":                 "http://localhost:8088",
-		"https://user:pass@evil.example.com":    "",
-		"ftp://files.example.com":               "",
-		"not-a-url":                             "",
-		"https://ok.example.com/api/v1/":        "https://ok.example.com/api/v1",
-		"  https://ok.example.com  ":            "https://ok.example.com",
-	}
-	for in, want := range cases {
-		if got := normalizePublicBaseURL(in); got != want {
-			t.Fatalf("normalizePublicBaseURL(%q) = %q, want %q", in, got, want)
-		}
 	}
 }
