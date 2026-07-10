@@ -21,9 +21,10 @@ func NewRemoteSigner(cfg config.Config) *RemoteSignerAdapter {
 func (a *RemoteSignerAdapter) Kind() Kind { return KindRemoteSigner }
 
 type remoteSignerOrchestrator struct {
-	Address      string         `json:"address"`
-	Score        float32        `json:"score"`
-	Capabilities CapabilityList `json:"capabilities"`
+	Address      string                `json:"address"`
+	Score        float32               `json:"score"`
+	Capabilities CapabilityList        `json:"capabilities"`
+	Runners      []orchDiscoveryRunner `json:"runners"`
 }
 
 func (a *RemoteSignerAdapter) FetchAll(ctx context.Context) (FetchResult, error) {
@@ -47,14 +48,16 @@ func (a *RemoteSignerAdapter) FetchAll(ctx context.Context) (FetchResult, error)
 
 	rows := make([]NormalizedOrch, 0, len(raw))
 	for _, r := range raw {
-		if len(r.Capabilities) == 0 {
+		apps := liveRunnerAppsFromRunners(r.Runners)
+		if len(r.Capabilities) == 0 && len(apps) == 0 {
 			continue
 		}
 		rows = append(rows, NormalizedOrch{
-			ServiceType:  ServiceTypeLegacy,
-			OrchURI:      r.Address,
-			Capabilities: append([]string(nil), r.Capabilities...),
-			Score:        float64(r.Score),
+			ServiceType:    ServiceTypeLegacy,
+			OrchURI:        r.Address,
+			Capabilities:   append([]string(nil), r.Capabilities...),
+			LiveRunnerApps: apps,
+			Score:          float64(r.Score),
 		})
 	}
 
@@ -63,4 +66,22 @@ func (a *RemoteSignerAdapter) FetchAll(ctx context.Context) (FetchResult, error)
 		Raw:   raw,
 		Stats: Stats{OK: true, Fetched: len(rows), DurationMs: elapsedMs(start)},
 	}, nil
+}
+
+func liveRunnerAppsFromRunners(runners []orchDiscoveryRunner) []string {
+	out := make([]string, 0, len(runners))
+	seen := make(map[string]struct{}, len(runners))
+	for _, runner := range runners {
+		app := strings.TrimSpace(runner.App)
+		url := strings.TrimSpace(runner.URL)
+		if app == "" || url == "" {
+			continue
+		}
+		if _, ok := seen[app]; ok {
+			continue
+		}
+		seen[app] = struct{}{}
+		out = append(out, app)
+	}
+	return out
 }

@@ -42,6 +42,11 @@ type Config struct {
 	RegistryManifestMaxConcurrency   int
 	RegistryManifestMaxOrchestrators int
 
+	OrchDiscoveryRefreshEnabled   bool
+	OrchDiscoveryTimeoutMs        int64
+	OrchDiscoveryMaxConcurrency   int
+	OrchDiscoveryMaxOrchestrators int
+
 	AIServiceRegistryRPCURL  string
 	AIServiceRegistryAddress string
 }
@@ -85,6 +90,11 @@ func Load() Config {
 		RegistryManifestTimeoutMs:        envInt64("REGISTRY_MANIFEST_TIMEOUT_MS", 5000),
 		RegistryManifestMaxConcurrency:   envInt("REGISTRY_MANIFEST_MAX_CONCURRENCY", 25),
 		RegistryManifestMaxOrchestrators: envInt("REGISTRY_MANIFEST_MAX_ORCHESTRATORS", 1000),
+
+		OrchDiscoveryRefreshEnabled:   envBool("ORCH_DISCOVERY_REFRESH_ENABLED", true),
+		OrchDiscoveryTimeoutMs:        envInt64("ORCH_DISCOVERY_TIMEOUT_MS", 5000),
+		OrchDiscoveryMaxConcurrency:   envInt("ORCH_DISCOVERY_MAX_CONCURRENCY", 25),
+		OrchDiscoveryMaxOrchestrators: envInt("ORCH_DISCOVERY_MAX_ORCHESTRATORS", 1000),
 
 		AIServiceRegistryRPCURL:  env("AI_SERVICE_REGISTRY_RPC_URL", "https://arb1.arbitrum.io/rpc"),
 		AIServiceRegistryAddress: env("AI_SERVICE_REGISTRY_ADDRESS", "0x04C0b249740175999E5BF5c9ac1dA92431EF34C5"),

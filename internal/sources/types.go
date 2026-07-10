@@ -48,6 +48,7 @@ type NormalizedOrch struct {
 	EthAddress        string
 	OrchURI           string
 	Capabilities      []string
+	LiveRunnerApps    []string
 	Score             float64
 	RecentWork        bool
 	LastSeenMs        int64

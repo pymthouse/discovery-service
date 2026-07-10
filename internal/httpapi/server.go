@@ -211,17 +211,34 @@ func rawCapabilityNames(r *http.Request, store *db.Store) ([]string, error) {
 	return store.ListCapabilities(r.Context(), serviceTypes)
 }
 
-// normalizeLegacyCaps maps incoming "pipeline/model" capability filters to the
-// bare model names that legacy rows are materialized under, so gateways can
-// reuse the same pipeline/model cap strings they send to orchestrators and
-// signer webhooks. Registry capabilities are opaque IDs and left untouched.
+// normalizeLegacyCaps expands incoming capability filters for legacy rows.
+// For each cap it keeps the exact string (live-runner apps like
+// "transcode/ffmpeg") and also the bare model name after stripping a
+// "pipeline/" prefix (classic webhook caps). Registry-only queries leave
+// opaque IDs untouched.
 func normalizeLegacyCaps(caps []string, serviceTypes []string) []string {
 	if !includesLegacyServiceType(serviceTypes) {
 		return caps
 	}
-	out := make([]string, 0, len(caps))
+	out := make([]string, 0, len(caps)*2)
+	seen := make(map[string]struct{}, len(caps)*2)
+	add := func(v string) {
+		v = strings.TrimSpace(v)
+		if v == "" {
+			return
+		}
+		if _, ok := seen[v]; ok {
+			return
+		}
+		seen[v] = struct{}{}
+		out = append(out, v)
+	}
 	for _, c := range caps {
-		out = append(out, sources.ExtractCapabilityName(c))
+		add(c)
+		stripped := sources.ExtractCapabilityName(c)
+		if stripped != strings.TrimSpace(c) {
+			add(stripped)
+		}
 	}
 	return out
 }

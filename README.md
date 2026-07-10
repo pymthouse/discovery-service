@@ -16,6 +16,11 @@ Extracted from NaaP `orchestrator-leaderboard`. Plan filters remain a **client**
 | `naap-pricing` | `PRICING_API_URL` (disabled by default in DB seed) |
 | `remote-signer` | `REMOTE_SIGNER_URL` (optional) |
 
+During refresh, discovery-service also probes each known orchestrator's `GET /discovery`
+for live-runner apps (`ORCH_DISCOVERY_*`). App IDs (e.g. `transcode/ffmpeg`) are
+materialized as capabilities so `/v1/discovery/raw?caps=transcode/ffmpeg` returns
+matching orch addresses. Clients then fan out to each orch's `/discovery` for runners.
+
 Dataset rows carry an explicit `service_type`:
 
 - `legacy` — ClickHouse, discover API, pricing, remote-signer
@@ -83,7 +88,7 @@ go run ./cmd/discoveryd
 - `GET /v1/discovery/freshness` — dataset age and row counts
 - `GET /v1/discovery/capabilities?serviceType=registry` — capability names plus `entries` metadata
 - `POST /v1/discovery/query` — client-driven ranked results (`serviceTypes: ["legacy","registry"]`)
-- `GET /v1/discovery/raw?caps=...&serviceType=legacy` — webhook-compatible JSON for go-livepeer gateways
+- `GET /v1/discovery/raw?caps=...&serviceType=legacy` — webhook-compatible JSON for go-livepeer gateways (also accepts live-runner app IDs such as `caps=transcode/ffmpeg` from orch `/discovery` probes)
 - `POST /v1/discovery/dataset/refresh` — refresh (Bearer `CRON_SECRET` or `X-Cron-Secret`)
 
 ## NaaP integration

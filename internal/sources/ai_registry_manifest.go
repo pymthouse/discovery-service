@@ -118,10 +118,7 @@ func collectAIRegistryRefs(
 			continue
 		}
 		seenURI[result.serviceURI] = struct{}{}
-		refs = append(refs, registryManifestRef{
-			eth:        result.eth,
-			serviceURI: result.serviceURI,
-		})
+		refs = append(refs, registryManifestRef(result))
 	}
 	return refs
 }
@@ -165,7 +162,7 @@ func lookupAIRegistryServiceURI(ctx context.Context, cfg config.Config, ethAddre
 	if err != nil {
 		return "", err
 	}
-	defer res.Body.Close()
+	defer func() { _ = res.Body.Close() }()
 	body, err := io.ReadAll(res.Body)
 	if err != nil {
 		return "", err

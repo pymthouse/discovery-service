@@ -11,8 +11,8 @@
 #   ./scripts/sonar-quality-gate.sh
 #
 # Optional overrides:
-#   SONAR_ORGANIZATION (default: eliteprox)
-#   SONAR_PROJECT_KEY  (default: eliteprox_discovery-service)
+#   SONAR_ORGANIZATION (default: pymthouse)
+#   SONAR_PROJECT_KEY  (default: pymthouse_discovery-service)
 
 set -euo pipefail
 
