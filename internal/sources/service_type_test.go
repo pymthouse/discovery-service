@@ -34,7 +34,10 @@ func TestClassifyPipelineCapability(t *testing.T) {
 		{"text-to-image/SG161222/RealVisXL", ServiceTypeBatch},
 		{"image-to-video/svd", ServiceTypeBatch},
 		{"llm/llama", ServiceTypeBatch},
-		{"livepeer/streamdiffusion-sdxl", ServiceTypeLiveVideoToVideo},
+		{"openai-chat-completions/gemma4:26b", ServiceTypeBatch},
+		{"openai-text-embeddings/nomic-embed-text:latest", ServiceTypeBatch},
+		{"livepeer/streamdiffusion-sdxl", ServiceTypeBatch},
+		{"gemma4:26b", ServiceTypeLiveVideoToVideo}, // bare name only; discover uses pipeline/ prefix
 	}
 	for _, tc := range cases {
 		if got := ClassifyPipelineCapability(tc.in); got != tc.want {

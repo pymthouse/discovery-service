@@ -35,15 +35,17 @@ var AllServiceTypes = []ServiceType{
 
 // batchPipelines are request-response AI pipeline prefixes (before "/").
 var batchPipelines = map[string]struct{}{
-	"text-to-image":      {},
-	"image-to-image":     {},
-	"image-to-video":     {},
-	"upscale":            {},
-	"audio-to-text":      {},
-	"segment-anything-2": {},
-	"image-to-text":      {},
-	"text-to-speech":     {},
-	"llm":                {},
+	"text-to-image":           {},
+	"image-to-image":          {},
+	"image-to-video":          {},
+	"upscale":                 {},
+	"audio-to-text":           {},
+	"segment-anything-2":      {},
+	"image-to-text":           {},
+	"text-to-speech":          {},
+	"llm":                     {},
+	"openai-chat-completions": {},
+	"openai-text-embeddings":  {},
 }
 
 // ParseServiceTypes normalizes request filters; empty means the live default set.
@@ -104,8 +106,9 @@ func ClassifyPipelineCapability(raw string) ServiceType {
 	case IsBatchPipeline(pipeline):
 		return ServiceTypeBatch
 	default:
-		// Unknown pipeline/model strings stay with the live class so existing
-		// gateway capabilities keep working under the default filter.
-		return ServiceTypeLiveVideoToVideo
+		// Any other "pipeline/model" string is request-response style (e.g.
+		// openai-chat-completions/..., openai-text-embeddings/...), not live
+		// video. Only bare names and explicit live-video-to-video/ stay live.
+		return ServiceTypeBatch
 	}
 }

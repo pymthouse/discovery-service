@@ -20,7 +20,7 @@ func TestCapabilityListUnmarshalLegacyAndRegistryShapes(t *testing.T) {
 	}
 
 	want := []ParsedCapability{
-		{Name: "streamdiffusion-sdxl", ServiceType: ServiceTypeLiveVideoToVideo},
+		{Name: "streamdiffusion-sdxl", ServiceType: ServiceTypeBatch},
 		{Name: "streamdiffusion-sdxl-v2v", ServiceType: ServiceTypeLiveVideoToVideo},
 		{Name: "SG161222/RealVisXL", ServiceType: ServiceTypeBatch},
 		{Name: "openai:/v1/chat/completions", ServiceType: ServiceTypeModules},
