@@ -219,6 +219,59 @@ func httpGetOrchDiscovery(ctx context.Context, client *http.Client, url string) 
 	return body, nil
 }
 
+type orchProbeResults struct {
+	mu       sync.Mutex
+	claims   []LiveRunnerAppClaim
+	errCount int
+	probed   int
+}
+
+func (r *orchProbeResults) record(body []byte, uri string, err error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.probed++
+	if err != nil {
+		r.errCount++
+		return
+	}
+	r.claims = append(r.claims, ParseOrchDiscoveryBody(body, uri)...)
+}
+
+func probeOrchDiscoveryURI(
+	ctx context.Context,
+	client *http.Client,
+	sem chan struct{},
+	uri string,
+	results *orchProbeResults,
+) {
+	sem <- struct{}{}
+	defer func() { <-sem }()
+
+	body, err := httpGetOrchDiscovery(ctx, client, OrchDiscoveryURL(uri))
+	results.record(body, uri, err)
+}
+
+func orchProbeStats(start time.Time, claims []LiveRunnerAppClaim, errCount, probed int) Stats {
+	stats := Stats{
+		OK:         true,
+		Fetched:    len(claims),
+		DurationMs: elapsedMs(start),
+	}
+	if errCount == 0 || len(claims) > 0 {
+		return stats
+	}
+	if errCount == probed {
+		stats.ErrorMessage = fmt.Sprintf("all %d orch /discovery probes failed", errCount)
+		return stats
+	}
+	stats.ErrorMessage = fmt.Sprintf(
+		"%d/%d orch /discovery probes failed and no claims collected",
+		errCount,
+		probed,
+	)
+	return stats
+}
+
 // ProbeOrchDiscovery GETs each orch's /discovery and returns app claims.
 // Soft-fails per URI; never fails the overall call.
 // TLS certificate verification is skipped so self-signed orch endpoints still work.
@@ -239,61 +292,25 @@ func ProbeOrchDiscovery(ctx context.Context, orchURIs []string, opts ProbeOrchDi
 	client := orchDiscoveryHTTPClient(timeout)
 
 	sem := make(chan struct{}, concurrency)
-	var mu sync.Mutex
 	var wg sync.WaitGroup
-	claims := make([]LiveRunnerAppClaim, 0)
-	var errCount int
-	var probed int
+	results := orchProbeResults{
+		claims: make([]LiveRunnerAppClaim, 0),
+	}
 
 	for _, uri := range orchURIs {
-		uri := uri
-		discoveryURL := OrchDiscoveryURL(uri)
-		if discoveryURL == "" {
+		if OrchDiscoveryURL(uri) == "" {
 			continue
 		}
 		wg.Add(1)
-		go func() {
+		go func(uri string) {
 			defer wg.Done()
-			sem <- struct{}{}
-			defer func() { <-sem }()
-
-			body, err := httpGetOrchDiscovery(ctx, client, discoveryURL)
-			if err != nil {
-				mu.Lock()
-				errCount++
-				probed++
-				mu.Unlock()
-				return
-			}
-			parsed := ParseOrchDiscoveryBody(body, uri)
-			mu.Lock()
-			probed++
-			if len(parsed) > 0 {
-				claims = append(claims, parsed...)
-			}
-			mu.Unlock()
-		}()
+			probeOrchDiscoveryURI(ctx, client, sem, uri, &results)
+		}(uri)
 	}
 	wg.Wait()
 
-	merged := MergeLiveRunnerAppClaims(claims, nil)
-	stats := Stats{
-		OK:         true,
-		Fetched:    len(merged),
-		DurationMs: elapsedMs(start),
-	}
-	if errCount > 0 && len(merged) == 0 {
-		if probed > 0 && errCount == probed {
-			stats.ErrorMessage = fmt.Sprintf("all %d orch /discovery probes failed", errCount)
-		} else {
-			stats.ErrorMessage = fmt.Sprintf(
-				"%d/%d orch /discovery probes failed and no claims collected",
-				errCount,
-				probed,
-			)
-		}
-	}
-	return merged, stats
+	merged := MergeLiveRunnerAppClaims(results.claims, nil)
+	return merged, orchProbeStats(start, merged, results.errCount, results.probed)
 }
 
 // ProbeOptionsFromConfig maps config fields onto probe options.

@@ -216,7 +216,7 @@ func rawCapabilityNames(r *http.Request, store *db.Store) ([]string, error) {
 // (live-runner apps like "transcode/ffmpeg") and also the bare model name after
 // stripping a known pipeline prefix. Modules-only queries leave opaque IDs
 // untouched.
-func normalizeLegacyCaps(caps []string, serviceTypes []string) []string {
+func normalizeLegacyCaps(caps, serviceTypes []string) []string {
 	if !includesPipelineServiceType(serviceTypes) {
 		return caps
 	}
