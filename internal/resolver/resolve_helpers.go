@@ -340,38 +340,83 @@ func mergeCapabilitiesByPriority(
 	enabled []SourceConfig,
 	sourceRows map[sources.Kind][]sources.NormalizedOrch,
 	fieldPriority map[string][]sources.Kind,
-) []string {
+) []typedCapability {
 	priority := fieldPriority["capabilities"]
 	if len(priority) == 0 {
 		for _, s := range enabled {
 			priority = append(priority, s.Kind)
 		}
 	}
+	type key struct {
+		name string
+		st   sources.ServiceType
+	}
+	seen := make(map[key]struct{})
+	out := make([]typedCapability, 0)
 	for _, src := range priority {
 		rows, ok := sourceRows[src]
 		if !ok || len(rows) == 0 {
 			continue
 		}
-		caps := collectCapabilities(rows)
-		if len(caps) > 0 {
-			return caps
+		for _, c := range collectTypedCapabilities(rows) {
+			k := key{name: c.name, st: c.serviceType}
+			if _, ok := seen[k]; ok {
+				continue
+			}
+			seen[k] = struct{}{}
+			out = append(out, c)
 		}
 	}
-	return nil
+	sort.Slice(out, func(i, j int) bool {
+		if out[i].serviceType != out[j].serviceType {
+			return out[i].serviceType < out[j].serviceType
+		}
+		return out[i].name < out[j].name
+	})
+	return out
+}
+
+func collectTypedCapabilities(rows []sources.NormalizedOrch) []typedCapability {
+	type key struct {
+		name string
+		st   sources.ServiceType
+	}
+	seen := make(map[key]struct{})
+	out := make([]typedCapability, 0)
+	for _, r := range rows {
+		st := r.EffectiveServiceType()
+		for _, c := range r.Capabilities {
+			if c == "" || c == "__uncategorized" {
+				continue
+			}
+			k := key{name: c, st: st}
+			if _, ok := seen[k]; ok {
+				continue
+			}
+			seen[k] = struct{}{}
+			out = append(out, typedCapability{name: c, serviceType: st})
+		}
+	}
+	sort.Slice(out, func(i, j int) bool {
+		if out[i].serviceType != out[j].serviceType {
+			return out[i].serviceType < out[j].serviceType
+		}
+		return out[i].name < out[j].name
+	})
+	return out
 }
 
 func collectCapabilities(rows []sources.NormalizedOrch) []string {
-	capSet := make(map[string]struct{})
-	for _, r := range rows {
-		for _, c := range r.Capabilities {
-			capSet[c] = struct{}{}
+	typed := collectTypedCapabilities(rows)
+	caps := make([]string, 0, len(typed))
+	seen := make(map[string]struct{}, len(typed))
+	for _, c := range typed {
+		if _, ok := seen[c.name]; ok {
+			continue
 		}
+		seen[c.name] = struct{}{}
+		caps = append(caps, c.name)
 	}
-	caps := make([]string, 0, len(capSet))
-	for c := range capSet {
-		caps = append(caps, c)
-	}
-	sort.Strings(caps)
 	return caps
 }
 
@@ -385,11 +430,12 @@ func buildCapabilityDataset(merged map[orchKey]mergedOrch) (map[string][]Dataset
 			continue
 		}
 		for _, cap := range m.capabilities {
-			if cap == "__uncategorized" {
-				continue
+			st := cap.serviceType
+			if st == "" {
+				st = sources.ServiceTypeLiveVideoToVideo
 			}
 			row := DatasetRow{
-				ServiceType:  string(sources.ServiceTypeLegacy),
+				ServiceType:  string(st),
 				EthAddress:   m.ethAddress,
 				OrchURI:      m.orchURI,
 				GPUName:      m.gpuName,
@@ -403,7 +449,7 @@ func buildCapabilityDataset(merged map[orchKey]mergedOrch) (map[string][]Dataset
 				AvgAvail:     m.avgAvail,
 				Score:        m.score,
 			}
-			capabilities[cap] = append(capabilities[cap], row)
+			capabilities[cap.name] = append(capabilities[cap.name], row)
 			if _, ok := seenOrch[key]; !ok {
 				seenOrch[key] = struct{}{}
 				totalOrch++

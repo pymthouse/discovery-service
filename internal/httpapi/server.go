@@ -211,13 +211,13 @@ func rawCapabilityNames(r *http.Request, store *db.Store) ([]string, error) {
 	return store.ListCapabilities(r.Context(), serviceTypes)
 }
 
-// normalizeLegacyCaps expands incoming capability filters for legacy rows.
-// For each cap it keeps the exact string (live-runner apps like
-// "transcode/ffmpeg") and also the bare model name after stripping a
-// "pipeline/" prefix (classic webhook caps). Registry-only queries leave
-// opaque IDs untouched.
+// normalizeLegacyCaps expands incoming capability filters for live-video,
+// live-runner, and batch rows. For each cap it keeps the exact string
+// (live-runner apps like "transcode/ffmpeg") and also the bare model name after
+// stripping a known pipeline prefix. Modules-only queries leave opaque IDs
+// untouched.
 func normalizeLegacyCaps(caps []string, serviceTypes []string) []string {
-	if !includesLegacyServiceType(serviceTypes) {
+	if !includesPipelineServiceType(serviceTypes) {
 		return caps
 	}
 	out := make([]string, 0, len(caps)*2)
@@ -243,9 +243,10 @@ func normalizeLegacyCaps(caps []string, serviceTypes []string) []string {
 	return out
 }
 
-func includesLegacyServiceType(serviceTypes []string) bool {
+func includesPipelineServiceType(serviceTypes []string) bool {
 	for _, st := range sources.ParseServiceTypes(serviceTypes) {
-		if st == sources.ServiceTypeLegacy {
+		switch st {
+		case sources.ServiceTypeLiveVideoToVideo, sources.ServiceTypeLiveRunner, sources.ServiceTypeBatch:
 			return true
 		}
 	}

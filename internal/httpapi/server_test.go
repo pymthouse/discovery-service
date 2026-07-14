@@ -12,7 +12,7 @@ import (
 func TestNormalizeLegacyCapsKeepsExactAndStripped(t *testing.T) {
 	got := normalizeLegacyCaps(
 		[]string{"live-video-to-video/streamdiffusion-sdxl", "streamdiffusion-sdxl"},
-		[]string{"legacy"},
+		[]string{"live-video-to-video"},
 	)
 	want := []string{"live-video-to-video/streamdiffusion-sdxl", "streamdiffusion-sdxl"}
 	if len(got) != len(want) {
@@ -28,7 +28,7 @@ func TestNormalizeLegacyCapsKeepsExactAndStripped(t *testing.T) {
 func TestNormalizeLegacyCapsKeepsLiveRunnerApp(t *testing.T) {
 	got := normalizeLegacyCaps(
 		[]string{"transcode/ffmpeg"},
-		[]string{"legacy"},
+		[]string{"live-runner"},
 	)
 	want := []string{"transcode/ffmpeg", "ffmpeg"}
 	if len(got) != len(want) {
@@ -41,18 +41,18 @@ func TestNormalizeLegacyCapsKeepsLiveRunnerApp(t *testing.T) {
 	}
 }
 
-func TestNormalizeLegacyCapsLeavesRegistryUntouched(t *testing.T) {
+func TestNormalizeLegacyCapsLeavesModulesUntouched(t *testing.T) {
 	in := []string{"daydream:scope/v1"}
-	got := normalizeLegacyCaps(in, []string{"registry"})
+	got := normalizeLegacyCaps(in, []string{"modules"})
 	if len(got) != 1 || got[0] != in[0] {
-		t.Fatalf("registry caps were modified: %#v", got)
+		t.Fatalf("modules caps were modified: %#v", got)
 	}
 }
 
 func TestNormalizeLegacyCapsDefaultServiceTypesKeepExactAndStripped(t *testing.T) {
 	got := normalizeLegacyCaps(
 		[]string{"live-video-to-video/streamdiffusion-sdxl"},
-		[]string{"legacy", "registry"},
+		nil,
 	)
 	want := []string{"live-video-to-video/streamdiffusion-sdxl", "streamdiffusion-sdxl"}
 	if len(got) != len(want) {

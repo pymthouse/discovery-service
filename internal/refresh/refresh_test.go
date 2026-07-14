@@ -39,7 +39,7 @@ func TestLiveRunnerClaimsToFlat(t *testing.T) {
 	if len(got) != 2 {
 		t.Fatalf("got %#v", got)
 	}
-	if got[0].Capability != "transcode/ffmpeg" || got[0].Score != 1 || got[0].ServiceType != "legacy" {
+	if got[0].Capability != "transcode/ffmpeg" || got[0].Score != 1 || got[0].ServiceType != "live-runner" {
 		t.Fatalf("unexpected first row: %#v", got[0])
 	}
 	if got[1].Score != 3 || got[1].OrchURI != "https://b" {
@@ -52,16 +52,16 @@ func TestResolverRowsToFlat(t *testing.T) {
 		"cap-a": {
 			{OrchURI: ""},
 			{OrchURI: "https://a", ServiceType: "", Score: 2},
-			{OrchURI: "https://b", ServiceType: "registry", EthAddress: "0x1", OfferingID: "default"},
+			{OrchURI: "https://b", ServiceType: "modules", EthAddress: "0x1", OfferingID: "default"},
 		},
 	})
 	if len(got) != 2 {
 		t.Fatalf("got %#v", got)
 	}
-	if got[0].ServiceType != "legacy" || got[0].Capability != "cap-a" || got[0].Score != 2 {
+	if got[0].ServiceType != "live-video-to-video" || got[0].Capability != "cap-a" || got[0].Score != 2 {
 		t.Fatalf("unexpected first: %#v", got[0])
 	}
-	if got[1].ServiceType != "registry" || got[1].OfferingID != "default" {
+	if got[1].ServiceType != "modules" || got[1].OfferingID != "default" {
 		t.Fatalf("unexpected second: %#v", got[1])
 	}
 }

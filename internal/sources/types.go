@@ -69,10 +69,10 @@ type NormalizedOrch struct {
 	PricePerUnitWei   string
 }
 
-// EffectiveServiceType returns legacy when unset.
+// EffectiveServiceType returns live-video-to-video when unset.
 func (o NormalizedOrch) EffectiveServiceType() ServiceType {
 	if o.ServiceType == "" {
-		return ServiceTypeLegacy
+		return ServiceTypeLiveVideoToVideo
 	}
 	return o.ServiceType
 }

@@ -52,7 +52,7 @@ func (a *PricingAdapter) FetchAll(ctx context.Context) (FetchResult, error) {
 		uri, _ := item["orchUri"].(string)
 		price, _ := item["pricePerUnit"].(float64)
 		rows = append(rows, NormalizedOrch{
-			ServiceType:  ServiceTypeLegacy,
+			ServiceType:  ServiceTypeLiveVideoToVideo,
 			EthAddress:   addr,
 			OrchURI:      uri,
 			PricePerUnit: price,

@@ -45,7 +45,7 @@ func TestParseRegistryManifestBodyV3(t *testing.T) {
 	}
 
 	normalized := registryRowsToNormalized(rows)
-	if normalized[0].ServiceType != ServiceTypeRegistry {
+	if normalized[0].ServiceType != ServiceTypeModules {
 		t.Fatalf("service type = %q", normalized[0].ServiceType)
 	}
 }

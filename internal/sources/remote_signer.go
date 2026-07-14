@@ -49,16 +49,34 @@ func (a *RemoteSignerAdapter) FetchAll(ctx context.Context) (FetchResult, error)
 	rows := make([]NormalizedOrch, 0, len(raw))
 	for _, r := range raw {
 		apps := liveRunnerAppsFromRunners(r.Runners)
-		if len(r.Capabilities) == 0 && len(apps) == 0 {
+		grouped := GroupCapabilitiesByServiceType(r.Capabilities)
+		if len(grouped) == 0 && len(apps) == 0 {
 			continue
 		}
-		rows = append(rows, NormalizedOrch{
-			ServiceType:    ServiceTypeLegacy,
-			OrchURI:        r.Address,
-			Capabilities:   append([]string(nil), r.Capabilities...),
-			LiveRunnerApps: apps,
-			Score:          float64(r.Score),
-		})
+		if len(grouped) == 0 {
+			// Runner-only rows still need an orch URI shell for live-runner claims.
+			rows = append(rows, NormalizedOrch{
+				ServiceType:    ServiceTypeLiveRunner,
+				OrchURI:        r.Address,
+				LiveRunnerApps: apps,
+				Score:          float64(r.Score),
+			})
+			continue
+		}
+		first := true
+		for st, caps := range grouped {
+			row := NormalizedOrch{
+				ServiceType:  st,
+				OrchURI:      r.Address,
+				Capabilities: caps,
+				Score:        float64(r.Score),
+			}
+			if first {
+				row.LiveRunnerApps = apps
+				first = false
+			}
+			rows = append(rows, row)
+		}
 	}
 
 	return FetchResult{

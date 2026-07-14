@@ -4,27 +4,23 @@ import (
 	"github.com/livepeer/discovery-service/internal/sources"
 )
 
-// BuildRegistryDataset maps registry manifest rows to per-capability dataset rows
-// without merging them with legacy gateway metrics.
+// BuildRegistryDataset maps modules/registry manifest rows to per-capability
+// dataset rows without merging them with live-video / batch gateway metrics.
 func BuildRegistryDataset(rows []sources.NormalizedOrch) map[string][]DatasetRow {
 	capabilities := make(map[string][]DatasetRow)
 	for _, r := range rows {
-		if r.EffectiveServiceType() != sources.ServiceTypeRegistry {
+		if r.EffectiveServiceType() != sources.ServiceTypeModules {
 			continue
-		}
-		score := r.Score
-		if score == 0 {
-			score = 1
 		}
 		for _, cap := range r.Capabilities {
 			if cap == "" {
 				continue
 			}
 			capabilities[cap] = append(capabilities[cap], DatasetRow{
-				ServiceType:     string(sources.ServiceTypeRegistry),
+				ServiceType:     string(sources.ServiceTypeModules),
 				EthAddress:      r.EthAddress,
 				OrchURI:         r.OrchURI,
-				Score:           score,
+				Score:           r.Score,
 				OfferingID:      r.OfferingID,
 				InteractionMode: r.InteractionMode,
 				WorkUnit:        r.WorkUnit,

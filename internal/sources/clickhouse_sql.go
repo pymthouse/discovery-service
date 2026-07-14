@@ -118,7 +118,7 @@ type CHRow struct {
 
 func chRowToNormalized(r CHRow, capability string) NormalizedOrch {
 	return NormalizedOrch{
-		ServiceType:  ServiceTypeLegacy,
+		ServiceType:  ClassifyPipelineCapability(capability),
 		OrchURI:      r.OrchURI,
 		GPUName:      r.GPUName,
 		GPUGb:        r.GPUGb,
@@ -129,6 +129,6 @@ func chRowToNormalized(r CHRow, capability string) NormalizedOrch {
 		AvgLatMs:     r.AvgLatMs,
 		SwapRatio:    r.SwapRatio,
 		AvgAvail:     r.AvgAvail,
-		Capabilities: []string{capability},
+		Capabilities: []string{ExtractCapabilityName(capability)},
 	}
 }

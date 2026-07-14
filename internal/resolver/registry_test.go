@@ -10,7 +10,7 @@ func TestLegacyAndRegistryCapabilitiesDoNotMerge(t *testing.T) {
 	legacy := Resolve(map[sources.Kind][]sources.NormalizedOrch{
 		sources.KindNaapDiscover: {
 			{
-				ServiceType:  sources.ServiceTypeLegacy,
+				ServiceType:  sources.ServiceTypeLiveVideoToVideo,
 				OrchURI:      "https://legacy.example",
 				Capabilities: []string{"daydream:scope:v1"},
 				Score:        2,
@@ -26,7 +26,7 @@ func TestLegacyAndRegistryCapabilitiesDoNotMerge(t *testing.T) {
 
 	registry := BuildRegistryDataset([]sources.NormalizedOrch{
 		{
-			ServiceType:     sources.ServiceTypeRegistry,
+			ServiceType:     sources.ServiceTypeModules,
 			OrchURI:         "https://registry-worker.example",
 			EthAddress:      "0xabc",
 			Capabilities:    []string{"daydream:scope:v1"},
@@ -40,10 +40,10 @@ func TestLegacyAndRegistryCapabilitiesDoNotMerge(t *testing.T) {
 	if len(legacyRows) != 1 || len(registryRows) != 1 {
 		t.Fatalf("legacy=%d registry=%d", len(legacyRows), len(registryRows))
 	}
-	if legacyRows[0].ServiceType != string(sources.ServiceTypeLegacy) {
+	if legacyRows[0].ServiceType != string(sources.ServiceTypeLiveVideoToVideo) {
 		t.Fatalf("legacy service type = %q", legacyRows[0].ServiceType)
 	}
-	if registryRows[0].ServiceType != string(sources.ServiceTypeRegistry) {
+	if registryRows[0].ServiceType != string(sources.ServiceTypeModules) {
 		t.Fatalf("registry service type = %q", registryRows[0].ServiceType)
 	}
 	if legacyRows[0].GPUName != "A100" {
