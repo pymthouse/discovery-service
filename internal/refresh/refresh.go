@@ -181,7 +181,7 @@ func liveRunnerClaimsToFlat(claims []sources.LiveRunnerAppClaim) []db.FlatRow {
 			score = 1
 		}
 		flat = append(flat, db.FlatRow{
-			ServiceType: string(sources.ServiceTypeLegacy),
+			ServiceType: string(sources.ServiceTypeLiveRunner),
 			Capability:  c.App,
 			OrchURI:     c.OrchURI,
 			Score:       score,
@@ -199,7 +199,7 @@ func resolverRowsToFlat(capabilities map[string][]resolver.DatasetRow) []db.Flat
 			}
 			serviceType := r.ServiceType
 			if serviceType == "" {
-				serviceType = string(sources.ServiceTypeLegacy)
+				serviceType = string(sources.ServiceTypeLiveVideoToVideo)
 			}
 			flat = append(flat, db.FlatRow{
 				ServiceType:     serviceType,

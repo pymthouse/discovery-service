@@ -27,10 +27,13 @@ certs are common); other HTTP sources still verify TLS normally.
 
 Dataset rows carry an explicit `service_type`:
 
-- `legacy` — ClickHouse, discover API, pricing, remote-signer
-- `registry` — capabilities from on-chain `serviceURI` manifests (`livepeer-network-modules` v3 or coordinator envelope), including the AI Service Registry at `0x04C0b249740175999E5BF5c9ac1dA92431EF34C5`
+- `live-video-to-video` — classic live ComfyStream pipelines (`live-video-to-video/<model>`), formerly labeled `legacy`
+- `live-runner` — apps advertised on each orch's `GET {serviceURL}/discovery` (and remote-signer `runners`)
+- `modules` — Livepeer Modules / on-chain `serviceURI` manifests (`livepeer-network-modules` v3 or coordinator envelope), including the AI Service Registry at `0x04C0b249740175999E5BF5c9ac1dA92431EF34C5`
+- `batch` — request-response AI pipelines (`text-to-image`, `image-to-image`, `llm`, …)
 
-Filter with `serviceTypes` on `POST /v1/discovery/query`, or `?serviceType=registry` on `/capabilities` and `/raw`.
+Filter with `serviceTypes` on `POST /v1/discovery/query`, or `?serviceType=modules` on `/capabilities` and `/raw`.
+When `serviceType` is omitted, the default is **`live-video-to-video` + `live-runner`** (batch and modules are excluded).
 
 ## API documentation
 
@@ -92,9 +95,9 @@ go run ./cmd/discoveryd
 
 - `GET /healthz` — liveness
 - `GET /v1/discovery/freshness` — dataset age and row counts
-- `GET /v1/discovery/capabilities?serviceType=registry` — capability names plus `entries` metadata
-- `POST /v1/discovery/query` — client-driven ranked results (`serviceTypes: ["legacy","registry"]`)
-- `GET /v1/discovery/raw?caps=...&serviceType=legacy` — webhook-compatible JSON for go-livepeer gateways (also accepts live-runner app IDs such as `caps=transcode/ffmpeg` from orch `/discovery` probes)
+- `GET /v1/discovery/capabilities?serviceType=modules` — capability names plus `entries` metadata
+- `POST /v1/discovery/query` — client-driven ranked results (`serviceTypes: ["live-video-to-video","live-runner"]` by default)
+- `GET /v1/discovery/raw?caps=...&serviceType=live-video-to-video` — webhook-compatible JSON for go-livepeer gateways (also accepts live-runner app IDs such as `caps=transcode/ffmpeg` from orch `/discovery` probes)
 - `POST /v1/discovery/dataset/refresh` — refresh (Bearer `CRON_SECRET` or `X-Cron-Secret`)
 
 ## NaaP integration

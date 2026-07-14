@@ -113,7 +113,7 @@ func (s *Store) GetConfig(ctx context.Context) (ConfigMeta, error) {
 		_ = json.Unmarshal(capsJSON, &meta.KnownCapabilities)
 		for _, cap := range meta.KnownCapabilities {
 			meta.KnownCapabilityEntries = append(meta.KnownCapabilityEntries, CapabilityEntry{
-				ServiceType: "legacy",
+				ServiceType: "live-video-to-video",
 				Capability:  cap,
 			})
 		}
@@ -164,7 +164,7 @@ func normalizeFlatRows(rows []FlatRow) []FlatRow {
 			continue
 		}
 		if r.ServiceType == "" {
-			r.ServiceType = "legacy"
+			r.ServiceType = "live-video-to-video"
 		}
 		flat = append(flat, r)
 	}

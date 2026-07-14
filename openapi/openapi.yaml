@@ -69,10 +69,10 @@ paths:
       parameters:
         - name: serviceType
           in: query
-          description: Filter by service class (`legacy`, `registry`). Omit for both.
+          description: Filter by service class (`live-video-to-video`, `live-runner`, `modules`, `batch`). Omit for live-video-to-video + live-runner.
           schema:
             type: string
-            enum: [legacy, registry]
+            enum: [live-video-to-video, live-runner, modules, batch]
       responses:
         "200":
           description: Capability names
@@ -123,7 +123,7 @@ paths:
           in: query
           description: |
             Capability or live-runner app filter (repeat for multiple).
-            Legacy pipeline/model values also match bare model names.
+            Live-video and batch pipeline/model values also match bare model names.
             Live-runner app IDs (e.g. `transcode/ffmpeg`) are matched exactly
             and also matched by their bare app name (e.g. `ffmpeg`).
           schema:
@@ -143,10 +143,10 @@ paths:
           explode: true
         - name: serviceType
           in: query
-          description: Filter by service class (`legacy`, `registry`). Omit for both.
+          description: Filter by service class (`live-video-to-video`, `live-runner`, `modules`, `batch`). Omit for live-video-to-video + live-runner.
           schema:
             type: string
-            enum: [legacy, registry]
+            enum: [live-video-to-video, live-runner, modules, batch]
       responses:
         "200":
           description: Webhook-shaped orchestrator list
@@ -271,7 +271,7 @@ components:
       properties:
         serviceType:
           type: string
-          enum: [legacy, registry]
+          enum: [live-video-to-video, live-runner, modules, batch]
         capability:
           type: string
         offeringIds:
@@ -333,8 +333,8 @@ components:
           type: array
           items:
             type: string
-            enum: [legacy, registry]
-          description: Filter dataset rows by service class. Omit for both.
+            enum: [live-video-to-video, live-runner, modules, batch]
+          description: Filter dataset rows by service class. Omit for live-video-to-video + live-runner (excludes batch and modules).
         topN:
           type: integer
           minimum: 1
@@ -357,7 +357,7 @@ components:
       properties:
         serviceType:
           type: string
-          enum: [legacy, registry]
+          enum: [live-video-to-video, live-runner, modules, batch]
         ethAddress:
           type: string
         offeringId:

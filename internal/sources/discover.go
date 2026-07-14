@@ -55,15 +55,19 @@ func discoverRowsToNormalized(rawRows []discoverRow) []NormalizedOrch {
 		if len(r.Capabilities) == 0 {
 			continue
 		}
-		caps := append([]string(nil), r.Capabilities...)
-		rows = append(rows, NormalizedOrch{
-			ServiceType:  ServiceTypeLegacy,
-			OrchURI:      r.Address,
-			Capabilities: caps,
-			Score:        r.Score,
-			RecentWork:   r.RecentWork,
-			LastSeenMs:   r.LastSeenMs,
-		})
+		for st, caps := range GroupCapabilitiesByServiceType(r.Capabilities) {
+			if len(caps) == 0 {
+				continue
+			}
+			rows = append(rows, NormalizedOrch{
+				ServiceType:  st,
+				OrchURI:      r.Address,
+				Capabilities: caps,
+				Score:        r.Score,
+				RecentWork:   r.RecentWork,
+				LastSeenMs:   r.LastSeenMs,
+			})
+		}
 	}
 	return rows
 }

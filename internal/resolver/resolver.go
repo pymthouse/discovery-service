@@ -55,8 +55,13 @@ type mergedOrch struct {
 	avgLatMs     *float64
 	swapRatio    *float64
 	avgAvail     *float64
-	capabilities []string
+	capabilities []typedCapability
 	score        float64
+}
+
+type typedCapability struct {
+	name        string
+	serviceType sources.ServiceType
 }
 
 // Resolve merges per-source rows into per-capability dataset rows.

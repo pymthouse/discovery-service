@@ -175,7 +175,7 @@ func registryRowsToNormalized(rows []RegistryOfferingRow) []NormalizedOrch {
 			continue
 		}
 		out = append(out, NormalizedOrch{
-			ServiceType:     ServiceTypeRegistry,
+			ServiceType:     ServiceTypeModules,
 			EthAddress:      r.EthAddress,
 			OrchURI:         r.WorkerURL,
 			Capabilities:    []string{r.CapabilityID},
