@@ -35,15 +35,15 @@ var AllServiceTypes = []ServiceType{
 
 // batchPipelines are request-response AI pipeline prefixes (before "/").
 var batchPipelines = map[string]struct{}{
-	"text-to-image":       {},
-	"image-to-image":      {},
-	"image-to-video":      {},
-	"upscale":             {},
-	"audio-to-text":       {},
-	"segment-anything-2":  {},
-	"image-to-text":       {},
-	"text-to-speech":      {},
-	"llm":                 {},
+	"text-to-image":      {},
+	"image-to-image":     {},
+	"image-to-video":     {},
+	"upscale":            {},
+	"audio-to-text":      {},
+	"segment-anything-2": {},
+	"image-to-text":      {},
+	"text-to-speech":     {},
+	"llm":                {},
 }
 
 // ParseServiceTypes normalizes request filters; empty means the live default set.
