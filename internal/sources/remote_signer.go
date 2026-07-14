@@ -53,27 +53,24 @@ func (a *RemoteSignerAdapter) FetchAll(ctx context.Context) (FetchResult, error)
 		if len(grouped) == 0 && len(apps) == 0 {
 			continue
 		}
-		if len(grouped) == 0 {
-			// Runner-only rows still need an orch URI shell for live-runner claims.
+		if len(apps) > 0 {
 			rows = append(rows, NormalizedOrch{
 				ServiceType:    ServiceTypeLiveRunner,
 				OrchURI:        r.Address,
 				LiveRunnerApps: apps,
 				Score:          float64(r.Score),
 			})
-			continue
 		}
-		first := true
+
 		for st, caps := range grouped {
+			if len(caps) == 0 {
+				continue
+			}
 			row := NormalizedOrch{
 				ServiceType:  st,
 				OrchURI:      r.Address,
 				Capabilities: caps,
 				Score:        float64(r.Score),
-			}
-			if first {
-				row.LiveRunnerApps = apps
-				first = false
 			}
 			rows = append(rows, row)
 		}

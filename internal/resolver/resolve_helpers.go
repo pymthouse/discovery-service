@@ -406,20 +406,6 @@ func collectTypedCapabilities(rows []sources.NormalizedOrch) []typedCapability {
 	return out
 }
 
-func collectCapabilities(rows []sources.NormalizedOrch) []string {
-	typed := collectTypedCapabilities(rows)
-	caps := make([]string, 0, len(typed))
-	seen := make(map[string]struct{}, len(typed))
-	for _, c := range typed {
-		if _, ok := seen[c.name]; ok {
-			continue
-		}
-		seen[c.name] = struct{}{}
-		caps = append(caps, c.name)
-	}
-	return caps
-}
-
 func buildCapabilityDataset(merged map[orchKey]mergedOrch) (map[string][]DatasetRow, int) {
 	capabilities := make(map[string][]DatasetRow)
 	seenOrch := make(map[orchKey]struct{})
