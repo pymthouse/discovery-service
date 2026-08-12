@@ -3,6 +3,7 @@ package config
 import (
 	"net/url"
 	"testing"
+	"time"
 )
 
 func TestLoadUsesExplicitDatabaseURL(t *testing.T) {
@@ -82,5 +83,23 @@ func TestLoadOrchDiscoveryExtraURIsEmpty(t *testing.T) {
 	cfg := Load()
 	if cfg.OrchDiscoveryExtraURIs != nil {
 		t.Fatalf("OrchDiscoveryExtraURIs = %#v, want nil", cfg.OrchDiscoveryExtraURIs)
+	}
+}
+
+func TestLoadInternalRefreshIntervalDefaults(t *testing.T) {
+	t.Setenv("INTERNAL_REFRESH_INTERVAL_MS", "")
+
+	cfg := Load()
+	if cfg.InternalRefreshEvery != time.Hour {
+		t.Fatalf("InternalRefreshEvery = %s, want %s", cfg.InternalRefreshEvery, time.Hour)
+	}
+}
+
+func TestLoadInternalRefreshIntervalOverride(t *testing.T) {
+	t.Setenv("INTERNAL_REFRESH_INTERVAL_MS", "1800000")
+
+	cfg := Load()
+	if cfg.InternalRefreshEvery != 30*time.Minute {
+		t.Fatalf("InternalRefreshEvery = %s, want %s", cfg.InternalRefreshEvery, 30*time.Minute)
 	}
 }

@@ -19,6 +19,8 @@ import (
 	"github.com/livepeer/discovery-service/internal/sources"
 )
 
+const internalRefreshAdvisoryLockKey int64 = 78008001
+
 func main() {
 	loadEnvFile()
 
@@ -48,6 +50,7 @@ func main() {
 	if os.Getenv("REFRESH_ON_STARTUP") == "true" {
 		go refreshOnStartup(ctx, cfg, store, ref, cacheLayer)
 	}
+	go internalRefreshLoop(ctx, cfg, store, ref, cacheLayer)
 
 	log.Printf("discovery-service listening on %s", cfg.HTTPAddr)
 	if err := httpapi.ListenAndServe(ctx, cfg.HTTPAddr, srv.Handler()); err != nil {
@@ -115,6 +118,47 @@ func refreshOnStartup(
 		return
 	}
 	cacheLayer.InvalidateAll()
+}
+
+func internalRefreshLoop(
+	ctx context.Context,
+	cfg config.Config,
+	store *db.Store,
+	ref *refresh.Service,
+	cacheLayer *cache.Layer,
+) {
+	interval := cfg.InternalRefreshEvery
+	if interval <= 0 {
+		log.Printf("invalid INTERNAL_REFRESH_INTERVAL_MS %s; using 1h", interval)
+		interval = time.Hour
+	}
+
+	log.Printf("internal refresh scheduler enabled: every %s", interval)
+	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			locked, err := store.WithAdvisoryLock(ctx, internalRefreshAdvisoryLockKey, func(runCtx context.Context) error {
+				log.Println("internal scheduled refresh...")
+				if _, err := ref.Run(runCtx, "internal-cron"); err != nil {
+					return err
+				}
+				cacheLayer.InvalidateAll()
+				return nil
+			})
+			if err != nil {
+				log.Printf("internal scheduled refresh failed: %v", err)
+				continue
+			}
+			if !locked {
+				log.Println("internal scheduled refresh skipped: another replica is refreshing")
+			}
+		}
+	}
 }
 
 // loadEnvFile loads .env from the current directory (repo root when using go run).

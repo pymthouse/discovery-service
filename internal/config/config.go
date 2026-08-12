@@ -21,10 +21,9 @@ type Config struct {
 	DatabaseURL string
 	RedisURL    string
 
-	CronSecret string
-
-	RefreshInterval    time.Duration
-	MembershipStrategy string
+	RefreshInterval      time.Duration
+	MembershipStrategy   string
+	InternalRefreshEvery time.Duration
 
 	ClickHouseURL        string
 	ClickHouseUser       string
@@ -72,10 +71,9 @@ func Load() Config {
 		DatabaseURL: databaseURL,
 		RedisURL:    env("REDIS_URL", ""),
 
-		CronSecret: env("CRON_SECRET", ""),
-
-		RefreshInterval:    time.Duration(refreshMs) * time.Millisecond,
-		MembershipStrategy: env("MEMBERSHIP_STRATEGY", "union"),
+		RefreshInterval:      time.Duration(refreshMs) * time.Millisecond,
+		MembershipStrategy:   env("MEMBERSHIP_STRATEGY", "union"),
+		InternalRefreshEvery: time.Duration(envInt64("INTERNAL_REFRESH_INTERVAL_MS", 3_600_000)) * time.Millisecond,
 
 		ClickHouseURL:        env("CLICKHOUSE_URL", ""),
 		ClickHouseUser:       env("CLICKHOUSE_USER", ""),

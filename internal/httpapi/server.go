@@ -303,15 +303,6 @@ func appendUnique(slice []string, v string) []string {
 
 func (s *Server) datasetRefresh(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set(headerCacheControl, "no-store, private")
-	if s.cfg.CronSecret != "" {
-		auth := r.Header.Get("Authorization")
-		secret := r.Header.Get("X-Cron-Secret")
-		ok := strings.TrimPrefix(auth, "Bearer ") == s.cfg.CronSecret || secret == s.cfg.CronSecret
-		if !ok {
-			writeError(w, http.StatusUnauthorized, "unauthorized")
-			return
-		}
-	}
 	refreshedBy := r.Header.Get("X-Refreshed-By")
 	if refreshedBy == "" {
 		refreshedBy = "api"

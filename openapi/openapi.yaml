@@ -165,11 +165,7 @@ paths:
       summary: Refresh materialized dataset from upstream sources
       description: |
         Fetches all enabled sources in parallel, resolves conflicts, and replaces the Postgres dataset.
-        Requires `Authorization: Bearer <CRON_SECRET>` or `X-Cron-Secret` header when CRON_SECRET is configured.
       operationId: refreshDataset
-      security:
-        - CronBearer: []
-        - CronHeader: []
       parameters:
         - name: X-Refreshed-By
           in: header
@@ -183,32 +179,13 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/RefreshResult"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
         "500":
           $ref: "#/components/responses/InternalError"
 
 components:
-  securitySchemes:
-    CronBearer:
-      type: http
-      scheme: bearer
-      description: Set to CRON_SECRET value
-    CronHeader:
-      type: apiKey
-      in: header
-      name: X-Cron-Secret
-      description: Alternative to Bearer auth for cron jobs
-
   responses:
     BadRequest:
       description: Invalid request
-      content:
-        application/json:
-          schema:
-            $ref: "#/components/schemas/ErrorResponse"
-    Unauthorized:
-      description: Missing or invalid cron secret
       content:
         application/json:
           schema:

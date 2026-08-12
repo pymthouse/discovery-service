@@ -1,6 +1,6 @@
-# Railway cron service — triggers dataset refresh once per schedule.
-# Create a "Cron" service in Railway, point Dockerfile to deploy/cron/Dockerfile,
-# set cron schedule e.g. "0 */1 * * *" (hourly) or "*/15 * * * *" (every 15 min).
+# Legacy Railway cron service config.
+# discoveryd now runs internal hourly refresh scheduling by default.
+# Do not deploy this in the normal production stack.
 
 [build]
 builder = "DOCKERFILE"

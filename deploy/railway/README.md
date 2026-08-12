@@ -5,7 +5,7 @@ Multi-region active-active deployment:
 - **Neon Postgres** — shared HA database (primary + read replica)
 - **discoveryd** — 3 replicas per region (private networking only)
 - **apache** — 2 replicas per region (public URL, `mod_proxy_balancer` → discoveryd)
-- **cron** — scheduled `POST /v1/discovery/dataset/refresh`
+- **internal refresh scheduler** — hourly dataset refresh inside `discoveryd`
 - **Cloudflare** — GeoDNS / load balancer across regional Apache endpoints
 
 ## Architecture
@@ -59,7 +59,7 @@ Create **two Railway projects** (or one project with two environments):
 | `discovery-service-us` | US West | `us-west` |
 | `discovery-service-eu` | EU West | `eu-west` |
 
-In each project, create **three services** from the same GitHub repo:
+In each project, create **two services** from the same GitHub repo:
 
 ### Service: `discoveryd` (private)
 
@@ -77,9 +77,9 @@ In each project, create **three services** from the same GitHub repo:
 HTTP_ADDR=:8088
 DATABASE_URL=<neon-primary-pooled-url>
 REDIS_URL=<optional-upstash-redis-url>
-CRON_SECRET=<random-32+-chars>
 LEADERBOARD_REFRESH_INTERVAL_MS=60000
 MEMBERSHIP_STRATEGY=union
+INTERNAL_REFRESH_INTERVAL_MS=3600000
 QUERY_CACHE_TTL_MS=120000
 MAX_TOP_N=1000
 CLICKHOUSE_URL=<your-clickhouse>
@@ -97,7 +97,7 @@ ORCH_DISCOVERY_EXTRA_URIS=http://154.61.61.108:8787,https://kiloutcorp.link:1111
 REFRESH_ON_STARTUP=false
 ```
 
-Set `REFRESH_ON_STARTUP=false` so 3 replicas do not all refresh on boot; use the cron service instead.
+Set `REFRESH_ON_STARTUP=false` so 3 replicas do not all refresh on boot. Recurring refresh runs on the internal scheduler (`INTERNAL_REFRESH_INTERVAL_MS`) with a cross-replica DB advisory lock.
 
 Railway's built-in `RAILWAY_PUBLIC_DOMAIN` rewrites the OpenAPI `servers` entry served at `/openapi.yaml` (used by Scalar). The hostname is never taken from request headers. Outside Railway, the embedded `http://localhost:8088` server remains.
 
@@ -123,24 +123,7 @@ Railway private DNS resolves `discoveryd.railway.internal` and load-balances acr
 
 Generate a **public domain** for apache (e.g. `discovery-us.up.railway.app`).
 
-### Service: `cron` (scheduled)
-
-| Setting | Value |
-|---------|-------|
-| Dockerfile | `/deploy/cron/Dockerfile` |
-| Cron schedule | `0 */1 * * *` (hourly) or `*/30 * * * *` |
-| Config file | [`cron.railway.toml`](cron.railway.toml) |
-
-**Variables:**
-
-```env
-DISCOVERY_URL=https://discovery-us.up.railway.app
-CRON_SECRET=<same-as-discoveryd>
-```
-
-Point `DISCOVERY_URL` at the **apache public URL** in that region (or the global Cloudflare URL once configured).
-
-Repeat all three services in **Region B** with `LB_REGION=eu-west` and Region B apache public URL for that region's cron (`DISCOVERY_URL` can be the global URL after Cloudflare is live).
+No separate Railway cron service is required. `discoveryd` performs hourly refreshes internally.
 
 ---
 
@@ -191,9 +174,8 @@ curl -s "$BASE/healthz"
 # Freshness (before refresh may show populated=false)
 curl -s "$BASE/v1/discovery/freshness" | jq .
 
-# Trigger refresh (use CRON_SECRET)
-curl -s -X POST "$BASE/v1/discovery/dataset/refresh" \
-  -H "Authorization: Bearer $CRON_SECRET" | jq .
+# Public Apache blocks /dataset/refresh by design (expect 403)
+curl -s -o /dev/null -w "%{http_code}\n" -X POST "$BASE/v1/discovery/dataset/refresh"
 
 # Capabilities
 curl -s "$BASE/v1/discovery/capabilities" | jq .
@@ -227,7 +209,7 @@ curl -sI -X POST "$BASE/v1/discovery/query" \
 
 Full runbook: **[SECURITY.md](SECURITY.md)** (secrets rotation, GHAS/SonarQube triage, Cloudflare rate limits, cache policy, emergency controls).
 
-- [ ] `CRON_SECRET` is random and only on Railway secrets (never in git)
+- [ ] Public Apache blocks `POST /v1/discovery/dataset/refresh` (expect 403)
 - [ ] `discoveryd` has **no** public URL
 - [ ] Neon uses `sslmode=require`
 - [ ] Railway variables marked as secrets for passwords
@@ -256,7 +238,7 @@ Dataset refresh and plan evaluation delegate to this URL when set.
 | Symptom | Fix |
 |---------|-----|
 | Apache 502 | Check `discoveryd` is healthy; verify `DISCOVERYD_UPSTREAM_LIST=http://discoveryd.railway.internal:8088` and service is named `discoveryd` |
-| Empty query results | Run refresh cron or `POST /v1/discovery/dataset/refresh` |
+| Empty query results | Wait for the next internal hourly refresh, or call `POST /v1/discovery/dataset/refresh` from Railway private network |
 | ClickHouse errors in logs | Verify `CLICKHOUSE_*` secrets; check IP allowlist on ClickHouse Cloud |
 | Neon connection refused | Use pooled URL; check SSL; verify Neon not suspended (upgrade from free tier) |
 | Docs page blank | Check `/openapi.yaml` returns YAML; Scalar loads from CDN |

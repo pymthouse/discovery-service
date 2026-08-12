@@ -55,6 +55,32 @@ func (s *Store) Close() {
 	s.pool.Close()
 }
 
+// WithAdvisoryLock executes fn only when the lock key is acquired.
+// The lock is held for the duration of fn and released automatically.
+func (s *Store) WithAdvisoryLock(ctx context.Context, key int64, fn func(context.Context) error) (bool, error) {
+	conn, err := s.pool.Acquire(ctx)
+	if err != nil {
+		return false, err
+	}
+	defer conn.Release()
+
+	var locked bool
+	if err := conn.QueryRow(ctx, `SELECT pg_try_advisory_lock($1)`, key).Scan(&locked); err != nil {
+		return false, err
+	}
+	if !locked {
+		return false, nil
+	}
+	defer func() {
+		_, _ = conn.Exec(context.Background(), `SELECT pg_advisory_unlock($1)`, key)
+	}()
+
+	if err := fn(ctx); err != nil {
+		return true, err
+	}
+	return true, nil
+}
+
 // SourceRow is a leaderboard_sources record.
 type SourceRow struct {
 	Kind     string

@@ -17,12 +17,9 @@ Railway / Neon secrets (never commit):
 
 | Variable | Service | Notes |
 |----------|---------|-------|
-| `CRON_SECRET` | discoveryd, cron | Random 32+ chars; protects `POST /v1/discovery/dataset/refresh` |
 | `DATABASE_URL` | discoveryd | Neon pooled URL, `sslmode=require` |
 | `CLICKHOUSE_PASSWORD` | discoveryd | ClickHouse Cloud credential |
 | `REDIS_URL` | discoveryd | Optional query cache |
-
-Rotate `CRON_SECRET` by generating a new value, updating Railway shared variables for **discoveryd** and **cron**, then redeploying both services.
 
 ### Branch protection (`main`)
 
@@ -71,7 +68,7 @@ Recommended starting rules (tune after observing traffic):
 | Rule | Path | Threshold | Action |
 |------|------|-----------|--------|
 | Global API | `*discovery.example.com/v1/discovery/*` | 120 req/min per IP | Managed challenge or block |
-| Refresh | `*/v1/discovery/dataset/refresh` | 10 req/min per IP | Block (cron uses single IP) |
+| Refresh | `*/v1/discovery/dataset/refresh` | Always block | Block |
 | Docs | `*/docs`, `*/openapi.yaml` | 300 req/min per IP | Challenge |
 
 Enable **WAF** managed rulesets on the proxied hostname. Use Cloudflare Load Balancer health checks on `GET /healthz`.
@@ -90,7 +87,7 @@ Go handlers in `internal/httpapi/server.go` set the values above. Apache [`httpd
 
 ## Emergency controls
 
-1. **Stop public refresh abuse:** Cloudflare block rule on `POST .../dataset/refresh` or rotate `CRON_SECRET` and update cron only.
+1. **Stop public refresh abuse:** Keep Cloudflare block rule on `POST .../dataset/refresh` and keep Apache denying that path.
 2. **Region failover:** Disable unhealthy pool in Cloudflare LB; traffic shifts to other region.
 3. **Rollback:** Redeploy previous Railway deployment for `apache` / `discoveryd`; Neon data is shared — no DB rollback needed for app-only regressions.
 4. **Disable discoveryd exposure:** Ensure discoveryd has **no** public Railway URL (private networking only).
@@ -113,9 +110,9 @@ curl -sI -X POST "$BASE/v1/discovery/query" \
   -H "Content-Type: application/json" \
   -d '{"capabilities":["streamdiffusion-sdxl"],"topN":1}' | grep -i cache-control
 
-# Refresh requires auth
+# Refresh endpoint blocked publicly
 curl -s -o /dev/null -w "%{http_code}\n" -X POST "$BASE/v1/discovery/dataset/refresh"
-# Expect 401 without Bearer token
+# Expect 403
 ```
 
 Burst test (optional, requires [hey](https://github.com/rakyll/hey)):

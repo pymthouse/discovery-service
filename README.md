@@ -51,7 +51,7 @@ See **[deploy/railway/README.md](deploy/railway/README.md)** for multi-region Ra
 - Neon Postgres (HA + read replica)
 - 3× `discoveryd` + 2× Apache LB per region
 - Cloudflare GeoDNS
-- Scheduled dataset refresh cron
+- Internal hourly dataset refresh scheduler (`INTERNAL_REFRESH_INTERVAL_MS`)
 
 ## Docker Compose (recommended)
 
@@ -77,7 +77,11 @@ make compose-logs
 make compose-down
 ```
 
-On first start, `REFRESH_ON_STARTUP=true` runs a dataset refresh when the DB is empty or stale.
+Recurring dataset refresh always runs inside `discoveryd` at
+`INTERNAL_REFRESH_INTERVAL_MS` (default 1 hour).
+
+On first start, `REFRESH_ON_STARTUP=true` runs a one-time startup refresh when
+the DB is empty or stale.
 
 ### Host-side `go run` (optional Postgres port)
 
@@ -98,7 +102,7 @@ go run ./cmd/discoveryd
 - `GET /v1/discovery/capabilities?serviceType=modules` — capability names plus `entries` metadata
 - `POST /v1/discovery/query` — client-driven ranked results (`serviceTypes: ["live-video-to-video","live-runner"]` by default)
 - `GET /v1/discovery/raw?caps=...&serviceType=live-video-to-video` — webhook-compatible JSON for go-livepeer gateways (also accepts live-runner app IDs such as `caps=transcode/ffmpeg` from orch `/discovery` probes)
-- `POST /v1/discovery/dataset/refresh` — refresh (Bearer `CRON_SECRET` or `X-Cron-Secret`)
+- `POST /v1/discovery/dataset/refresh` — internal/admin refresh trigger (normally blocked at public Apache edge in Railway)
 
 ## NaaP integration
 

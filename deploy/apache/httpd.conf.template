@@ -74,6 +74,7 @@ ProxyPassReverse / balancer://discoveryd/
 
 # Mutable or sensitive endpoints — never cache at edge
 <Location /v1/discovery/dataset/refresh>
+    Require all denied
     Header set Cache-Control "no-store, no-cache, must-revalidate, private"
     Header set Pragma "no-cache"
 </Location>
