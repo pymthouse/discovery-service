@@ -1,6 +1,7 @@
 package sources
 
 import (
+	"bytes"
 	"context"
 	"crypto/tls"
 	"encoding/json"
@@ -31,8 +32,13 @@ type orchDiscoveryEntry struct {
 }
 
 type orchDiscoveryRunner struct {
-	URL string `json:"url"`
-	App string `json:"app"`
+	URL      string          `json:"url"`
+	App      string          `json:"app"`
+	Metadata json.RawMessage `json:"metadata"`
+}
+
+type orchDiscoveryRunnerMetadata struct {
+	Capabilities []string `json:"capabilities"`
 }
 
 // OrchDiscoveryURL builds GET {orchURI}/discovery.
@@ -128,24 +134,61 @@ func ParseOrchDiscoveryBody(body []byte, fallbackURI string) []LiveRunnerAppClai
 			continue
 		}
 		for _, runner := range entry.Runners {
-			app := strings.TrimSpace(runner.App)
 			url := strings.TrimSpace(runner.URL)
-			if app == "" || url == "" {
+			if url == "" {
 				continue
 			}
-			key := orchURI + "\x00" + app
-			if _, ok := seen[key]; ok {
-				continue
+			apps := append([]string{strings.TrimSpace(runner.App)}, metadataCapabilities(runner.Metadata)...)
+			for _, app := range apps {
+				app = strings.TrimSpace(app)
+				if app == "" {
+					continue
+				}
+				key := orchURI + "\x00" + app
+				if _, ok := seen[key]; ok {
+					continue
+				}
+				seen[key] = struct{}{}
+				out = append(out, LiveRunnerAppClaim{
+					OrchURI: orchURI,
+					App:     app,
+					Score:   1,
+				})
 			}
-			seen[key] = struct{}{}
-			out = append(out, LiveRunnerAppClaim{
-				OrchURI: orchURI,
-				App:     app,
-				Score:   1,
-			})
 		}
 	}
 	return out
+}
+
+// metadataCapabilities extracts runner-level capabilities from a metadata field.
+// Some orchestrators emit metadata as an escaped JSON string instead of an object.
+func metadataCapabilities(raw json.RawMessage) []string {
+	raw = bytes.TrimSpace(raw)
+	if len(raw) == 0 {
+		return nil
+	}
+
+	if raw[0] == '"' {
+		var decoded string
+		if err := json.Unmarshal(raw, &decoded); err != nil {
+			return nil
+		}
+		raw = bytes.TrimSpace([]byte(decoded))
+		if len(raw) == 0 {
+			return nil
+		}
+	}
+
+	var metadata orchDiscoveryRunnerMetadata
+	if err := json.Unmarshal(raw, &metadata); err != nil {
+		return nil
+	}
+
+	if len(metadata.Capabilities) == 0 {
+		return nil
+	}
+
+	return metadata.Capabilities
 }
 
 // MergeLiveRunnerAppClaims prefers preferred claims over fallback for the same orch+app.

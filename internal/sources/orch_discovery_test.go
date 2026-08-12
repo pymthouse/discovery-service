@@ -65,6 +65,38 @@ func TestParseOrchDiscoveryBodyFallbackAddress(t *testing.T) {
 	}
 }
 
+func TestParseOrchDiscoveryBodyMetadataCapabilities(t *testing.T) {
+	body := []byte(`[
+		{
+			"address": "https://orch.example:8935",
+			"runners": [
+				{
+					"url": "https://runner.example/a",
+					"app": "video-creator",
+					"metadata": "{\"capabilities\": [\"chat\", \"t2v\"]}"
+				}
+			]
+		}
+	]`)
+
+	got := ParseOrchDiscoveryBody(body, "https://fallback.example")
+	if len(got) != 3 {
+		t.Fatalf("got %d claims, want 3: %#v", len(got), got)
+	}
+
+	claims := map[string]bool{}
+	for _, claim := range got {
+		claims[claim.App] = true
+	}
+
+	want := []string{"video-creator", "chat", "t2v"}
+	for _, app := range want {
+		if !claims[app] {
+			t.Fatalf("missing app claim %q in %#v", app, got)
+		}
+	}
+}
+
 func TestCollectOrchURIs(t *testing.T) {
 	perSource := map[Kind][]NormalizedOrch{
 		KindSubgraph: {
