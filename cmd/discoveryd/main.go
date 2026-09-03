@@ -65,7 +65,6 @@ func openStore(ctx context.Context, cfg config.Config) (*db.Store, error) {
 func buildSourceRegistry(cfg config.Config) *sources.Registry {
 	return sources.NewRegistry(
 		sources.NewSubgraph(cfg),
-		sources.NewServiceRegistry(cfg),
 		sources.NewRegistryManifest(cfg),
 		sources.NewAIRegistryManifest(cfg),
 		sources.NewClickHouse(cfg),

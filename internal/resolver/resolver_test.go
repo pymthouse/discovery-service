@@ -6,36 +6,6 @@ import (
 	"github.com/livepeer/discovery-service/internal/sources"
 )
 
-func TestResolve_ServiceRegistryURIPreferred(t *testing.T) {
-	perSource := map[sources.Kind][]sources.NormalizedOrch{
-		sources.KindClickHouse: {
-			{
-				EthAddress:   "0xabc",
-				OrchURI:      "https://old.example:8935",
-				Capabilities: []string{"streamdiffusion-sdxl"},
-			},
-		},
-		sources.KindServiceRegistry: {
-			{EthAddress: "0xabc", OrchURI: "https://ai1.eliteencoder.net:8936"},
-		},
-	}
-	cfg := Config{
-		MembershipStrategy: "union",
-		Sources: []SourceConfig{
-			{Kind: sources.KindClickHouse, Priority: 1, Enabled: true},
-			{Kind: sources.KindServiceRegistry, Priority: 2, Enabled: true},
-		},
-	}
-	res := Resolve(perSource, cfg)
-	rows := res.Capabilities["streamdiffusion-sdxl"]
-	if len(rows) != 1 {
-		t.Fatalf("got %#v", rows)
-	}
-	if rows[0].OrchURI != "https://ai1.eliteencoder.net:8936" {
-		t.Fatalf("expected on-chain serviceURI, got %q", rows[0].OrchURI)
-	}
-}
-
 func TestResolve_UnionIncludesDiscoverOnly(t *testing.T) {
 	perSource := map[sources.Kind][]sources.NormalizedOrch{
 		sources.KindClickHouse: {

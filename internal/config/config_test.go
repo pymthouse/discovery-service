@@ -103,34 +103,3 @@ func TestLoadInternalRefreshIntervalOverride(t *testing.T) {
 		t.Fatalf("InternalRefreshEvery = %s, want %s", cfg.InternalRefreshEvery, 30*time.Minute)
 	}
 }
-
-func TestLoadServiceRegistryDefaults(t *testing.T) {
-	t.Setenv("SERVICE_REGISTRY_REFRESH_ENABLED", "")
-	t.Setenv("SERVICE_REGISTRY_ADDRESS", "")
-	t.Setenv("BONDING_MANAGER_ADDRESS", "")
-
-	cfg := Load()
-	if !cfg.ServiceRegistryRefreshEnabled {
-		t.Fatal("ServiceRegistryRefreshEnabled should default on")
-	}
-	if cfg.ServiceRegistryAddress != "0xC92d3A360b8f9e083bA64DE15d95Cf8180897431" {
-		t.Fatalf("ServiceRegistryAddress = %q", cfg.ServiceRegistryAddress)
-	}
-	if cfg.BondingManagerAddress != "0x35Bcf3c30594191d53231E4FF333E8A770453e40" {
-		t.Fatalf("BondingManagerAddress = %q", cfg.BondingManagerAddress)
-	}
-}
-
-func TestLoadServiceRegistryOverride(t *testing.T) {
-	t.Setenv("SERVICE_REGISTRY_REFRESH_ENABLED", "false")
-	t.Setenv("SERVICE_REGISTRY_ADDRESS", "0xabc")
-	t.Setenv("BONDING_MANAGER_ADDRESS", "0xdef")
-
-	cfg := Load()
-	if cfg.ServiceRegistryRefreshEnabled {
-		t.Fatal("ServiceRegistryRefreshEnabled should be false")
-	}
-	if cfg.ServiceRegistryAddress != "0xabc" || cfg.BondingManagerAddress != "0xdef" {
-		t.Fatalf("unexpected override: %#v %#v", cfg.ServiceRegistryAddress, cfg.BondingManagerAddress)
-	}
-}

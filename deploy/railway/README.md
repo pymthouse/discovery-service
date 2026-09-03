@@ -87,16 +87,11 @@ CLICKHOUSE_USER=default
 CLICKHOUSE_PASSWORD=<secret>
 SUBGRAPH_URL=https://gateway.thegraph.com/api/<SUBGRAPH_ID>/subgraphs/id/<id>
 SUBGRAPH_ID=FE63YgkzcpVocxdCEyEYbvjYqEf2kb1A6daMYRxmejYC
-AI_SERVICE_REGISTRY_RPC_URL=https://arb1.arbitrum.io/rpc
-AI_SERVICE_REGISTRY_ADDRESS=0x04C0b249740175999E5BF5c9ac1dA92431EF34C5
-SERVICE_REGISTRY_REFRESH_ENABLED=true
-SERVICE_REGISTRY_ADDRESS=0xC92d3A360b8f9e083bA64DE15d95Cf8180897431
-BONDING_MANAGER_ADDRESS=0x35Bcf3c30594191d53231E4FF333E8A770453e40
 DISCOVER_API_URL=https://naap-api.cloudspe.com/v1/discover/orchestrators
 PRICING_API_URL=
 REMOTE_SIGNER_URL=
 ORCH_DISCOVERY_MAX_ORCHESTRATORS=1000
-# Live-runner gateway orchs not yet in subgraph/ClickHouse/discover/service-registry sources.
+# Live-runner gateway orchs not yet in subgraph/ClickHouse/discover sources.
 # Keep this set in Railway shared/service variables for discoveryd.
 ORCH_DISCOVERY_EXTRA_URIS=http://154.61.61.108:8787,https://kiloutcorp.link:11111,https://orchestrator-5090-3.dpn.gg/
 REFRESH_ON_STARTUP=false

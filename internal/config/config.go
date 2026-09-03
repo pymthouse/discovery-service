@@ -54,10 +54,6 @@ type Config struct {
 
 	AIServiceRegistryRPCURL  string
 	AIServiceRegistryAddress string
-
-	ServiceRegistryRefreshEnabled bool
-	ServiceRegistryAddress        string
-	BondingManagerAddress         string
 }
 
 // Load reads configuration from environment variables.
@@ -108,10 +104,6 @@ func Load() Config {
 
 		AIServiceRegistryRPCURL:  env("AI_SERVICE_REGISTRY_RPC_URL", "https://arb1.arbitrum.io/rpc"),
 		AIServiceRegistryAddress: env("AI_SERVICE_REGISTRY_ADDRESS", "0x04C0b249740175999E5BF5c9ac1dA92431EF34C5"),
-
-		ServiceRegistryRefreshEnabled: envBool("SERVICE_REGISTRY_REFRESH_ENABLED", true),
-		ServiceRegistryAddress:        env("SERVICE_REGISTRY_ADDRESS", "0xC92d3A360b8f9e083bA64DE15d95Cf8180897431"),
-		BondingManagerAddress:         env("BONDING_MANAGER_ADDRESS", "0x35Bcf3c30594191d53231E4FF333E8A770453e40"),
 	}
 }
 
