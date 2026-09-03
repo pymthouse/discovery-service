@@ -20,12 +20,13 @@ INSERT INTO leaderboard_config (id) VALUES ('singleton') ON CONFLICT DO NOTHING;
 
 INSERT INTO leaderboard_sources (kind, priority, enabled) VALUES
     ('livepeer-subgraph', 1, true),
-    ('livepeer-registry-manifest', 2, true),
-    ('livepeer-ai-registry-manifest', 3, true),
-    ('clickhouse-query', 4, true),
-    ('naap-discover', 5, true),
-    ('naap-pricing', 6, false),
-    ('remote-signer', 7, false)
+    ('livepeer-service-registry', 2, true),
+    ('livepeer-registry-manifest', 3, true),
+    ('livepeer-ai-registry-manifest', 4, true),
+    ('clickhouse-query', 5, true),
+    ('naap-discover', 6, true),
+    ('naap-pricing', 7, false),
+    ('remote-signer', 8, false)
 ON CONFLICT (kind) DO NOTHING;
 
 CREATE TABLE IF NOT EXISTS leaderboard_dataset_rows (
