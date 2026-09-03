@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
+	"sort"
 	"strings"
 	"time"
 
@@ -18,7 +19,10 @@ import (
 	"github.com/livepeer/discovery-service/pkg/discotypes"
 )
 
-const headerCacheControl = "Cache-Control"
+const (
+	headerCacheControl = "Cache-Control"
+	rawCacheControl    = "public, max-age=30"
+)
 
 // Server is the HTTP API for discovery-service.
 type Server struct {
@@ -27,6 +31,8 @@ type Server struct {
 	refresh *refresh.Service
 	query   *query.Service
 	cache   *cache.Layer
+	// rawRowsQuery is an optional test seam for GET /v1/discovery/raw.
+	rawRowsQuery func(context.Context, []string, []string) ([]db.FlatRow, error)
 }
 
 // New builds the HTTP server dependencies.
@@ -37,7 +43,13 @@ func New(
 	q *query.Service,
 	c *cache.Layer,
 ) *Server {
-	return &Server{cfg: cfg, store: store, refresh: ref, query: q, cache: c}
+	return &Server{
+		cfg:     cfg,
+		store:   store,
+		refresh: ref,
+		query:   q,
+		cache:   c,
+	}
 }
 
 // Handler returns the root http.Handler.
@@ -169,15 +181,35 @@ func (s *Server) discoveryQuery(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) discoveryRaw(w http.ResponseWriter, r *http.Request) {
-	caps, err := rawCapabilityNames(r, s.store)
+	serviceTypes := capabilityServiceTypes(r)
+	caps := rawCapabilityFilter(r)
+
+	if s.cache != nil {
+		if cached, ok := s.cache.GetRaw(r.Context(), caps, serviceTypes); ok {
+			w.Header().Set(headerCacheControl, rawCacheControl)
+			writeJSON(w, http.StatusOK, cached)
+			return
+		}
+	}
+
+	rows, err := s.loadRawRows(r.Context(), caps, serviceTypes)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
-	serviceTypes := capabilityServiceTypes(r)
-	byAddr := mergeRawOrchestrators(r.Context(), s.store, caps, serviceTypes)
-	out := webhookOrchestratorsFromRaw(byAddr)
+	out := webhookOrchestratorsFromRaw(groupRawOrchestrators(rows))
+	if s.cache != nil {
+		s.cache.SetRaw(r.Context(), caps, serviceTypes, out)
+	}
+	w.Header().Set(headerCacheControl, rawCacheControl)
 	writeJSON(w, http.StatusOK, out)
+}
+
+func (s *Server) loadRawRows(ctx context.Context, capabilities []string, serviceTypes []string) ([]db.FlatRow, error) {
+	if s.rawRowsQuery != nil {
+		return s.rawRowsQuery(ctx, capabilities, serviceTypes)
+	}
+	return s.store.QueryRawRows(ctx, capabilities, serviceTypes)
 }
 
 type rawOrchEntry struct {
@@ -199,16 +231,15 @@ func capabilityServiceTypes(r *http.Request) []string {
 	return out
 }
 
-func rawCapabilityNames(r *http.Request, store *db.Store) ([]string, error) {
-	serviceTypes := capabilityServiceTypes(r)
+func rawCapabilityFilter(r *http.Request) []string {
 	caps := r.URL.Query()["caps"]
 	if len(caps) == 0 {
 		caps = r.URL.Query()["capability"]
 	}
-	if len(caps) > 0 {
-		return normalizeLegacyCaps(caps, serviceTypes), nil
+	if len(caps) == 0 {
+		return nil
 	}
-	return store.ListCapabilities(r.Context(), serviceTypes)
+	return normalizeLegacyCaps(caps, capabilityServiceTypes(r))
 }
 
 // normalizeLegacyCaps expands incoming capability filters for live-video,
@@ -253,16 +284,10 @@ func includesPipelineServiceType(serviceTypes []string) bool {
 	return false
 }
 
-func mergeRawOrchestrators(ctx context.Context, store *db.Store, caps []string, serviceTypes []string) map[string]*rawOrchEntry {
-	byAddr := make(map[string]*rawOrchEntry)
-	for _, cap := range caps {
-		rows, err := store.QueryRows(ctx, cap, serviceTypes, db.QueryFilters{}, 1000)
-		if err != nil {
-			continue
-		}
-		for _, row := range rows {
-			recordRawOrch(byAddr, row, cap)
-		}
+func groupRawOrchestrators(rows []db.FlatRow) map[string]*rawOrchEntry {
+	byAddr := make(map[string]*rawOrchEntry, len(rows))
+	for _, row := range rows {
+		recordRawOrch(byAddr, row, row.Capability)
 	}
 	return byAddr
 }
@@ -289,6 +314,9 @@ func webhookOrchestratorsFromRaw(byAddr map[string]*rawOrchEntry) []discotypes.W
 			Capabilities: e.caps,
 		})
 	}
+	sort.Slice(out, func(i, j int) bool {
+		return out[i].Address < out[j].Address
+	})
 	return out
 }
 
