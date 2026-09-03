@@ -109,20 +109,24 @@ func buildEthUriMaps(
 		idx := sourceIndexes[s.Kind]
 		for _, rows := range idx {
 			for _, r := range rows {
-				if r.EthAddress == "" || r.OrchURI == "" {
-					continue
-				}
-				eth := strings.ToLower(r.EthAddress)
-				if _, ok := uriToEth[r.OrchURI]; !ok {
-					uriToEth[r.OrchURI] = eth
-				}
-				if _, ok := ethToUri[eth]; !ok {
-					ethToUri[eth] = r.OrchURI
-				}
+				addEthURI(r, uriToEth, ethToUri)
 			}
 		}
 	}
 	return uriToEth, ethToUri
+}
+
+func addEthURI(r sources.NormalizedOrch, uriToEth, ethToUri map[string]string) {
+	if r.EthAddress == "" || r.OrchURI == "" {
+		return
+	}
+	eth := strings.ToLower(r.EthAddress)
+	if _, ok := uriToEth[r.OrchURI]; !ok {
+		uriToEth[r.OrchURI] = eth
+	}
+	if _, ok := ethToUri[eth]; !ok {
+		ethToUri[eth] = r.OrchURI
+	}
 }
 
 func dedupeUriMembershipKeys(membershipKeys map[orchKey]struct{}, uriToEth map[string]string) {
@@ -223,27 +227,49 @@ func sourceRowsForMember(
 			sourceRows[s.Kind] = rows
 			continue
 		}
-		mk := string(memberKey)
-		if strings.HasPrefix(mk, "eth:") {
-			if uri, ok := ethToUri[mk[4:]]; ok {
-				if rows, ok := idx[orchKey("uri:"+uri)]; ok {
-					sourceRows[s.Kind] = rows
-				}
-			}
-		} else if strings.HasPrefix(mk, "uri:") {
-			if eth, ok := uriToEth[mk[4:]]; ok {
-				if rows, ok := idx[orchKey("eth:"+eth)]; ok {
-					sourceRows[s.Kind] = rows
-				}
-			}
+		if rows, ok := alternateSourceRows(memberKey, idx, uriToEth, ethToUri); ok {
+			sourceRows[s.Kind] = rows
 		}
 	}
 	return sourceRows
 }
 
+func alternateSourceRows(
+	memberKey orchKey,
+	index map[orchKey][]sources.NormalizedOrch,
+	uriToEth, ethToUri map[string]string,
+) ([]sources.NormalizedOrch, bool) {
+	key := string(memberKey)
+	if strings.HasPrefix(key, "eth:") {
+		uri, ok := ethToUri[key[4:]]
+		if !ok {
+			return nil, false
+		}
+		rows, found := index[orchKey("uri:"+uri)]
+		return rows, found
+	}
+	if strings.HasPrefix(key, "uri:") {
+		eth, ok := uriToEth[key[4:]]
+		if !ok {
+			return nil, false
+		}
+		rows, found := index[orchKey("eth:"+eth)]
+		return rows, found
+	}
+	return nil, false
+}
+
 type fieldMerge struct {
 	name  string
 	apply func(*mergedOrch, sources.NormalizedOrch)
+}
+
+type fieldMergeContext struct {
+	enabled       []SourceConfig
+	sourceRows    map[sources.Kind][]sources.NormalizedOrch
+	fieldPriority map[string][]sources.Kind
+	conflicts     *[]ConflictEntry
+	merged        *mergedOrch
 }
 
 var mergedFieldMerges = []fieldMerge{
@@ -269,8 +295,15 @@ func mergeMemberOrchestrator(
 	conflicts *[]ConflictEntry,
 ) mergedOrch {
 	m := mergedOrch{}
+	ctx := fieldMergeContext{
+		enabled:       enabled,
+		sourceRows:    sourceRows,
+		fieldPriority: fieldPriority,
+		conflicts:     conflicts,
+		merged:        &m,
+	}
 	for _, field := range mergedFieldMerges {
-		applyMergedField(memberKey, field.name, enabled, sourceRows, fieldPriority, conflicts, &m, field.apply)
+		applyMergedField(memberKey, field, ctx)
 	}
 	m.capabilities = mergeCapabilitiesByPriority(enabled, sourceRows, fieldPriority)
 	return m
@@ -278,25 +311,25 @@ func mergeMemberOrchestrator(
 
 func applyMergedField(
 	memberKey orchKey,
-	field string,
-	enabled []SourceConfig,
-	sourceRows map[sources.Kind][]sources.NormalizedOrch,
-	fieldPriority map[string][]sources.Kind,
-	conflicts *[]ConflictEntry,
-	m *mergedOrch,
-	apply func(*mergedOrch, sources.NormalizedOrch),
+	field fieldMerge,
+	ctx fieldMergeContext,
 ) {
-	winner, winnerRow, losers := pickFieldWinner(field, enabled, sourceRows, fieldPriority)
+	winner, winnerRow, losers := pickFieldWinner(
+		field.name,
+		ctx.enabled,
+		ctx.sourceRows,
+		ctx.fieldPriority,
+	)
 	if winner == "" {
 		return
 	}
-	apply(m, winnerRow)
+	field.apply(ctx.merged, winnerRow)
 	if len(losers) == 0 {
 		return
 	}
-	*conflicts = append(*conflicts, ConflictEntry{
+	*ctx.conflicts = append(*ctx.conflicts, ConflictEntry{
 		OrchKey: string(memberKey),
-		Field:   field,
+		Field:   field.name,
 		Winner:  winner,
 		Losers:  losers,
 	})

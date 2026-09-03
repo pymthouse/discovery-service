@@ -85,47 +85,66 @@ func parseV3ManifestRows(body []byte) []RegistryOfferingRow {
 	eth := strings.ToLower(strings.TrimSpace(m.EthAddress))
 	out := make([]RegistryOfferingRow, 0)
 	for _, node := range m.Nodes {
-		worker := strings.TrimRight(strings.TrimSpace(node.URL), "/")
-		if worker == "" {
-			continue
-		}
-		nodeEth := strings.ToLower(strings.TrimSpace(node.WorkerEth))
-		if nodeEth == "" {
-			nodeEth = eth
-		}
-		for _, cap := range node.Capabilities {
-			capID := strings.TrimSpace(cap.Name)
-			if capID == "" {
-				continue
-			}
-			workUnit := strings.TrimSpace(cap.WorkUnit)
-			if len(cap.Offerings) == 0 {
-				out = append(out, RegistryOfferingRow{
-					EthAddress:      nodeEth,
-					WorkerURL:       worker,
-					CapabilityID:    capID,
-					WorkUnit:        workUnit,
-					PricePerUnitWei: "",
-				})
-				continue
-			}
-			for _, off := range cap.Offerings {
-				offID := strings.TrimSpace(off.ID)
-				if offID == "" {
-					continue
-				}
-				out = append(out, RegistryOfferingRow{
-					EthAddress:      nodeEth,
-					WorkerURL:       worker,
-					CapabilityID:    capID,
-					OfferingID:      offID,
-					WorkUnit:        workUnit,
-					PricePerUnitWei: strings.TrimSpace(off.PricePerWorkUnitWei),
-				})
-			}
+		out = append(out, v3NodeRows(node, eth)...)
+	}
+	return out
+}
+
+func v3NodeRows(node v3Node, fallbackEth string) []RegistryOfferingRow {
+	worker := strings.TrimRight(strings.TrimSpace(node.URL), "/")
+	if worker == "" {
+		return nil
+	}
+	nodeEth := strings.ToLower(strings.TrimSpace(node.WorkerEth))
+	if nodeEth == "" {
+		nodeEth = fallbackEth
+	}
+	out := make([]RegistryOfferingRow, 0)
+	for _, capability := range node.Capabilities {
+		out = append(out, v3CapabilityRows(capability, nodeEth, worker)...)
+	}
+	return out
+}
+
+func v3CapabilityRows(capability v3Capability, ethAddress, workerURL string) []RegistryOfferingRow {
+	capabilityID := strings.TrimSpace(capability.Name)
+	if capabilityID == "" {
+		return nil
+	}
+	workUnit := strings.TrimSpace(capability.WorkUnit)
+	if len(capability.Offerings) == 0 {
+		return []RegistryOfferingRow{{
+			EthAddress:   ethAddress,
+			WorkerURL:    workerURL,
+			CapabilityID: capabilityID,
+			WorkUnit:     workUnit,
+		}}
+	}
+	out := make([]RegistryOfferingRow, 0, len(capability.Offerings))
+	for _, offering := range capability.Offerings {
+		if row, ok := v3OfferingRow(offering, ethAddress, workerURL, capabilityID, workUnit); ok {
+			out = append(out, row)
 		}
 	}
 	return out
+}
+
+func v3OfferingRow(
+	offering v3Offering,
+	ethAddress, workerURL, capabilityID, workUnit string,
+) (RegistryOfferingRow, bool) {
+	offeringID := strings.TrimSpace(offering.ID)
+	if offeringID == "" {
+		return RegistryOfferingRow{}, false
+	}
+	return RegistryOfferingRow{
+		EthAddress:      ethAddress,
+		WorkerURL:       workerURL,
+		CapabilityID:    capabilityID,
+		OfferingID:      offeringID,
+		WorkUnit:        workUnit,
+		PricePerUnitWei: strings.TrimSpace(offering.PricePerWorkUnitWei),
+	}, true
 }
 
 func parseCoordinatorManifestRows(body []byte) []RegistryOfferingRow {

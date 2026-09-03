@@ -231,7 +231,7 @@ func applyRowMinMax(mm *minMax, r db.FlatRow) {
 	updateMinMax(r.PricePerUnit, &mm.minPrice, &mm.maxPrice)
 }
 
-func updateOptionalMinMax(value *float64, min *float64, max *float64) {
+func updateOptionalMinMax(value, min, max *float64) {
 	if value == nil {
 		return
 	}
