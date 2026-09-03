@@ -388,6 +388,54 @@ func (s *Store) QueryRows(ctx context.Context, capability string, serviceTypes [
 	return out, rows.Err()
 }
 
+const rawWebhookRowLimit = 100_000
+
+func buildRawRowsQuery(capabilities []string, serviceTypes []string) (string, []any) {
+	q := `SELECT orch_uri, capability, score FROM leaderboard_dataset_rows`
+	args := []any{}
+	n := 1
+	if len(serviceTypes) > 0 {
+		q += fmt.Sprintf(" WHERE service_type = ANY($%d)", n)
+		args = append(args, serviceTypes)
+		n++
+	}
+	if len(capabilities) > 0 {
+		clause := fmt.Sprintf("capability = ANY($%d)", n)
+		if len(args) == 0 {
+			q += " WHERE " + clause
+		} else {
+			q += " AND " + clause
+		}
+		args = append(args, capabilities)
+		n++
+	}
+	q += fmt.Sprintf(" ORDER BY orch_uri, capability LIMIT $%d", n)
+	args = append(args, rawWebhookRowLimit)
+	return q, args
+}
+
+// QueryRawRows loads orch URI, capability, and score in one round-trip for
+// GET /v1/discovery/raw. Empty capabilities means every capability still
+// filtered by serviceTypes.
+func (s *Store) QueryRawRows(ctx context.Context, capabilities []string, serviceTypes []string) ([]FlatRow, error) {
+	q, args := buildRawRowsQuery(capabilities, serviceTypes)
+	rows, err := s.pool.Query(ctx, q, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var out []FlatRow
+	for rows.Next() {
+		var r FlatRow
+		if err := rows.Scan(&r.OrchURI, &r.Capability, &r.Score); err != nil {
+			return nil, err
+		}
+		out = append(out, r)
+	}
+	return out, rows.Err()
+}
+
 // ListCapabilities returns distinct capability names in the dataset.
 func (s *Store) ListCapabilities(ctx context.Context, serviceTypes []string) ([]string, error) {
 	entries, err := s.ListCapabilityEntries(ctx, serviceTypes)

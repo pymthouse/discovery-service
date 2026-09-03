@@ -72,6 +72,10 @@ ProxyPassReverse / balancer://discoveryd/
     Header set Cache-Control "public, max-age=300"
 </Location>
 
+<Location /v1/discovery/raw>
+    Header set Cache-Control "public, max-age=30"
+</Location>
+
 # Mutable or sensitive endpoints — never cache at edge
 <Location /v1/discovery/dataset/refresh>
     Require all denied
