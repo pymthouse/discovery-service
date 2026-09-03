@@ -9,7 +9,6 @@ Extracted from NaaP `orchestrator-leaderboard`. Plan filters remain a **client**
 | Kind | Env |
 |------|-----|
 | `livepeer-subgraph` | `SUBGRAPH_URL`, `SUBGRAPH_ID` |
-| `livepeer-service-registry` | `SERVICE_REGISTRY_*`, `BONDING_MANAGER_ADDRESS`, `AI_SERVICE_REGISTRY_*` (go-livepeer `TranscoderPool` + `GetServiceURI`) |
 | `livepeer-registry-manifest` | `REGISTRY_MANIFEST_*` (probes on-chain `serviceURI` manifests) |
 | `livepeer-ai-registry-manifest` | `AI_SERVICE_REGISTRY_*`, `REGISTRY_MANIFEST_*` (reads AI Service Registry `getServiceURI`) |
 | `clickhouse-query` | `CLICKHOUSE_*` or `CLICKHOUSE_GATEWAY_URL` |
@@ -21,11 +20,8 @@ During refresh, discovery-service also probes each known orchestrator's `GET /di
 for live-runner apps (`ORCH_DISCOVERY_*`). App IDs (e.g. `transcode/ffmpeg`) are
 materialized as capabilities so `/v1/discovery/raw?caps=transcode/ffmpeg` returns
 matching orch addresses. Clients then fan out to each orch's `/discovery` for runners.
-`livepeer-service-registry` contributes registered protocol and AI `serviceURI`s from
-the BondingManager transcoder pool (the same loop go-livepeer uses), so nodes that
-updated on-chain URIs are probed even when the subgraph is stale.
 Set `ORCH_DISCOVERY_EXTRA_URIS` to always probe gateway orchs that advertise
-live-runner apps but are not yet in subgraph/ClickHouse/discover/service-registry sources.
+live-runner apps but are not yet in subgraph/ClickHouse/discover sources.
 These probes skip TLS certificate verification (self-signed / hostname-mismatched orch
 certs are common); other HTTP sources still verify TLS normally.
 

@@ -10,7 +10,6 @@ type Kind string
 
 const (
 	KindSubgraph           Kind = "livepeer-subgraph"
-	KindServiceRegistry    Kind = "livepeer-service-registry"
 	KindRegistryManifest   Kind = "livepeer-registry-manifest"
 	KindAIRegistryManifest Kind = "livepeer-ai-registry-manifest"
 	KindClickHouse         Kind = "clickhouse-query"
@@ -22,7 +21,6 @@ const (
 // AllKinds is the default registration order.
 var AllKinds = []Kind{
 	KindSubgraph,
-	KindServiceRegistry,
 	KindRegistryManifest,
 	KindAIRegistryManifest,
 	KindClickHouse,

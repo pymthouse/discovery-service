@@ -7,8 +7,8 @@ import (
 )
 
 var defaultFieldPriority = map[string][]sources.Kind{
-	"orchUri":      {sources.KindServiceRegistry, sources.KindSubgraph, sources.KindClickHouse, sources.KindNaapDiscover, sources.KindRemoteSigner, sources.KindNaapPricing},
-	"ethAddress":   {sources.KindServiceRegistry, sources.KindSubgraph, sources.KindNaapPricing, sources.KindClickHouse, sources.KindNaapDiscover, sources.KindRemoteSigner},
+	"orchUri":      {sources.KindSubgraph, sources.KindClickHouse, sources.KindNaapDiscover, sources.KindRemoteSigner, sources.KindNaapPricing},
+	"ethAddress":   {sources.KindSubgraph, sources.KindNaapPricing, sources.KindClickHouse, sources.KindNaapDiscover, sources.KindRemoteSigner},
 	"gpuName":      {sources.KindClickHouse, sources.KindNaapDiscover},
 	"gpuGb":        {sources.KindClickHouse, sources.KindNaapDiscover},
 	"avail":        {sources.KindClickHouse},

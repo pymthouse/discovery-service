@@ -2,9 +2,8 @@ openapi: 3.1.0
 info:
   title: Discovery Service API
   description: |
-    Standalone orchestrator discovery service. Aggregates subgraph, on-chain
-    serviceURI registry, ClickHouse, discover API, and optional sources into a
-    materialized Postgres dataset.
+    Standalone orchestrator discovery service. Aggregates subgraph, ClickHouse,
+    discover API, and optional sources into a materialized Postgres dataset.
     Clients send filters, sort, and topN at query time — no server-side discovery plans.
   version: 1.0.0
   contact:
