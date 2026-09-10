@@ -159,8 +159,9 @@ func TestProbeOptionsFromConfig(t *testing.T) {
 	got := ProbeOptionsFromConfig(config.Config{
 		OrchDiscoveryTimeoutMs:      1234,
 		OrchDiscoveryMaxConcurrency: 7,
+		OrchHTTPInsecureSkipVerify:  true,
 	})
-	if got.TimeoutMs != 1234 || got.MaxConcurrency != 7 {
+	if got.TimeoutMs != 1234 || got.MaxConcurrency != 7 || !got.InsecureSkipVerify {
 		t.Fatalf("unexpected options: %#v", got)
 	}
 }
@@ -236,12 +237,37 @@ func TestProbeOrchDiscoveryAcceptsInvalidTLS(t *testing.T) {
 
 	claims, stats := ProbeOrchDiscovery(context.Background(), []string{
 		srv.URL,
-	}, ProbeOrchDiscoveryOptions{TimeoutMs: 2000, MaxConcurrency: 1})
+	}, ProbeOrchDiscoveryOptions{
+		TimeoutMs:          2000,
+		MaxConcurrency:     1,
+		InsecureSkipVerify: true,
+	})
 	if len(claims) != 1 || claims[0].App != "transcode/ffmpeg" {
 		t.Fatalf("expected claim despite invalid TLS, got %#v (stats=%#v)", claims, stats)
 	}
 	if stats.ErrorMessage != "" {
 		t.Fatalf("unexpected probe error: %s", stats.ErrorMessage)
+	}
+}
+
+func TestProbeOrchDiscoveryRejectsInvalidTLSWhenVerifyEnabled(t *testing.T) {
+	srv := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(`[{"address":"https://x","runners":[{"url":"http://r","app":"transcode/ffmpeg"}]}]`))
+	}))
+	defer srv.Close()
+
+	claims, stats := ProbeOrchDiscovery(context.Background(), []string{
+		srv.URL,
+	}, ProbeOrchDiscoveryOptions{
+		TimeoutMs:          2000,
+		MaxConcurrency:     1,
+		InsecureSkipVerify: false,
+	})
+	if len(claims) != 0 {
+		t.Fatalf("expected TLS failure to drop claims, got %#v", claims)
+	}
+	if stats.ErrorMessage == "" {
+		t.Fatal("expected probe error when TLS verification is enabled")
 	}
 }
 

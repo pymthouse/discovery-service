@@ -1,7 +1,11 @@
 package sources
 
 import (
+	"context"
+	"net/http"
+	"net/http/httptest"
 	"testing"
+	"time"
 )
 
 func TestParseRegistryManifestBodyV3(t *testing.T) {
@@ -138,5 +142,55 @@ func TestManifestFetchCandidates(t *testing.T) {
 	exact := ManifestFetchCandidates("https://orch.example.com/.well-known/livepeer-registry.json")
 	if len(exact) != 1 || exact[0] != "https://orch.example.com/.well-known/livepeer-registry.json" {
 		t.Fatalf("exact manifest candidates = %#v", exact)
+	}
+}
+
+func TestFetchFirstManifestAcceptsInvalidTLSWhenSkipEnabled(t *testing.T) {
+	srv := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/.well-known/livepeer-registry.json" && r.URL.Path != "/" {
+			http.NotFound(w, r)
+			return
+		}
+		_, _ = w.Write([]byte(`{
+			"schema_version":"3.0.1",
+			"eth_address":"0xabcdef0000000000000000000000000000000000",
+			"nodes":[{
+				"url":"https://worker.example.com",
+				"capabilities":[{
+					"name":"openai:/v1/chat/completions",
+					"work_unit":"token",
+					"offerings":[{"id":"gpt-oss-20b","price_per_work_unit_wei":"1000"}]
+				}]
+			}]
+		}`))
+	}))
+	defer srv.Close()
+
+	body, ok := fetchFirstManifest(context.Background(), srv.URL, 2*time.Second, true)
+	if !ok || len(body) == 0 {
+		t.Fatalf("expected manifest despite invalid TLS, ok=%v body=%q", ok, body)
+	}
+}
+
+func TestFetchFirstManifestRejectsInvalidTLSWhenVerifyEnabled(t *testing.T) {
+	srv := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(`{
+			"schema_version":"3.0.1",
+			"eth_address":"0xabcdef0000000000000000000000000000000000",
+			"nodes":[{
+				"url":"https://worker.example.com",
+				"capabilities":[{
+					"name":"openai:/v1/chat/completions",
+					"work_unit":"token",
+					"offerings":[{"id":"gpt-oss-20b","price_per_work_unit_wei":"1000"}]
+				}]
+			}]
+		}`))
+	}))
+	defer srv.Close()
+
+	body, ok := fetchFirstManifest(context.Background(), srv.URL, 2*time.Second, false)
+	if ok || len(body) != 0 {
+		t.Fatalf("expected TLS failure to skip manifest, ok=%v body=%q", ok, body)
 	}
 }
