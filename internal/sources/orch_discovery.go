@@ -221,8 +221,9 @@ func MergeLiveRunnerAppClaims(preferred, fallback []LiveRunnerAppClaim) []LiveRu
 
 // ProbeOrchDiscoveryOptions controls concurrent /discovery probing.
 type ProbeOrchDiscoveryOptions struct {
-	TimeoutMs      int64
-	MaxConcurrency int
+	TimeoutMs          int64
+	MaxConcurrency     int
+	InsecureSkipVerify bool
 }
 
 // orchDiscoveryHTTPClient builds a client for probing orchestrator /discovery.
@@ -317,7 +318,8 @@ func orchProbeStats(start time.Time, claims []LiveRunnerAppClaim, errCount, prob
 
 // ProbeOrchDiscovery GETs each orch's /discovery and returns app claims.
 // Soft-fails per URI; never fails the overall call.
-// TLS certificate verification is skipped so self-signed orch endpoints still work.
+// TLS verification is skipped when opts.InsecureSkipVerify is set
+// (ORCH_HTTP_INSECURE_SKIP_VERIFY) so self-signed orch endpoints still work.
 func ProbeOrchDiscovery(ctx context.Context, orchURIs []string, opts ProbeOrchDiscoveryOptions) ([]LiveRunnerAppClaim, Stats) {
 	start := time.Now()
 	if len(orchURIs) == 0 {
@@ -332,7 +334,10 @@ func ProbeOrchDiscovery(ctx context.Context, orchURIs []string, opts ProbeOrchDi
 	if concurrency <= 0 {
 		concurrency = 25
 	}
-	client := orchDiscoveryHTTPClient(timeout)
+	client := &http.Client{Timeout: timeout}
+	if opts.InsecureSkipVerify {
+		client = orchDiscoveryHTTPClient(timeout)
+	}
 
 	sem := make(chan struct{}, concurrency)
 	var wg sync.WaitGroup
@@ -359,7 +364,8 @@ func ProbeOrchDiscovery(ctx context.Context, orchURIs []string, opts ProbeOrchDi
 // ProbeOptionsFromConfig maps config fields onto probe options.
 func ProbeOptionsFromConfig(cfg config.Config) ProbeOrchDiscoveryOptions {
 	return ProbeOrchDiscoveryOptions{
-		TimeoutMs:      cfg.OrchDiscoveryTimeoutMs,
-		MaxConcurrency: cfg.OrchDiscoveryMaxConcurrency,
+		TimeoutMs:          cfg.OrchDiscoveryTimeoutMs,
+		MaxConcurrency:     cfg.OrchDiscoveryMaxConcurrency,
+		InsecureSkipVerify: cfg.OrchHTTPInsecureSkipVerify,
 	}
 }

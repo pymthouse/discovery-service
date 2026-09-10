@@ -17,6 +17,16 @@ func httpGet(ctx context.Context, url string, headers map[string]string) ([]byte
 }
 
 func httpGetTimeout(ctx context.Context, url string, headers map[string]string, timeout time.Duration) ([]byte, error) {
+	return httpGetTimeoutTLS(ctx, url, headers, timeout, false)
+}
+
+func httpGetTimeoutTLS(
+	ctx context.Context,
+	url string,
+	headers map[string]string,
+	timeout time.Duration,
+	insecureSkipVerify bool,
+) ([]byte, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
 		return nil, err
@@ -27,7 +37,12 @@ func httpGetTimeout(ctx context.Context, url string, headers map[string]string, 
 	if timeout <= 0 {
 		timeout = defaultHTTPTimeout
 	}
-	client := &http.Client{Timeout: timeout}
+	var client *http.Client
+	if insecureSkipVerify {
+		client = orchDiscoveryHTTPClient(timeout)
+	} else {
+		client = &http.Client{Timeout: timeout}
+	}
 	res, err := client.Do(req)
 	if err != nil {
 		return nil, err

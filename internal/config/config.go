@@ -51,6 +51,10 @@ type Config struct {
 	OrchDiscoveryMaxConcurrency   int
 	OrchDiscoveryMaxOrchestrators int
 	OrchDiscoveryExtraURIs        []string
+	// OrchHTTPInsecureSkipVerify skips TLS verification for orch-facing HTTP:
+	// registry manifest GETs, live-runner GET {serviceURL}/discovery, and the
+	// discover API (DISCOVER_API_URL).
+	OrchHTTPInsecureSkipVerify bool
 
 	AIServiceRegistryRPCURL  string
 	AIServiceRegistryAddress string
@@ -105,6 +109,7 @@ func Load() Config {
 		OrchDiscoveryMaxConcurrency:   envInt("ORCH_DISCOVERY_MAX_CONCURRENCY", 25),
 		OrchDiscoveryMaxOrchestrators: envInt("ORCH_DISCOVERY_MAX_ORCHESTRATORS", 1000),
 		OrchDiscoveryExtraURIs:        envCSV("ORCH_DISCOVERY_EXTRA_URIS"),
+		OrchHTTPInsecureSkipVerify:    envBool("ORCH_HTTP_INSECURE_SKIP_VERIFY", false),
 
 		AIServiceRegistryRPCURL:  env("AI_SERVICE_REGISTRY_RPC_URL", "https://arb1.arbitrum.io/rpc"),
 		AIServiceRegistryAddress: env("AI_SERVICE_REGISTRY_ADDRESS", "0x04C0b249740175999E5BF5c9ac1dA92431EF34C5"),

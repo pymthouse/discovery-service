@@ -93,7 +93,7 @@ func fetchRegistryManifestRefs(
 			sem <- struct{}{}
 			defer func() { <-sem }()
 
-			rows := fetchRegistryManifestRef(ctx, ref, timeout)
+			rows := fetchRegistryManifestRef(ctx, ref, timeout, cfg.OrchHTTPInsecureSkipVerify)
 			if len(rows) > 0 {
 				results <- probeResult{rows: rows}
 			}
@@ -112,11 +112,16 @@ func fetchRegistryManifestRefs(
 	return all
 }
 
-func fetchRegistryManifestRef(ctx context.Context, ref registryManifestRef, timeout time.Duration) []NormalizedOrch {
+func fetchRegistryManifestRef(
+	ctx context.Context,
+	ref registryManifestRef,
+	timeout time.Duration,
+	insecureSkipVerify bool,
+) []NormalizedOrch {
 	probeCtx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
-	body, ok := fetchFirstManifest(probeCtx, ref.serviceURI, timeout)
+	body, ok := fetchFirstManifest(probeCtx, ref.serviceURI, timeout, insecureSkipVerify)
 	if !ok {
 		return nil
 	}
@@ -147,9 +152,14 @@ func registryManifestConcurrency(cfg config.Config) int {
 	return cfg.RegistryManifestMaxConcurrency
 }
 
-func fetchFirstManifest(ctx context.Context, serviceURI string, timeout time.Duration) ([]byte, bool) {
+func fetchFirstManifest(
+	ctx context.Context,
+	serviceURI string,
+	timeout time.Duration,
+	insecureSkipVerify bool,
+) ([]byte, bool) {
 	for _, candidate := range ManifestFetchCandidates(serviceURI) {
-		body, err := httpGetTimeout(ctx, candidate, nil, timeout)
+		body, err := httpGetTimeoutTLS(ctx, candidate, nil, timeout, insecureSkipVerify)
 		if err != nil {
 			continue
 		}

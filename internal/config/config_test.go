@@ -121,6 +121,24 @@ func TestLoadServiceRegistryDefaults(t *testing.T) {
 	}
 }
 
+func TestLoadOrchHTTPInsecureSkipVerifyDefault(t *testing.T) {
+	t.Setenv("ORCH_HTTP_INSECURE_SKIP_VERIFY", "")
+
+	cfg := Load()
+	if cfg.OrchHTTPInsecureSkipVerify {
+		t.Fatal("OrchHTTPInsecureSkipVerify should default off")
+	}
+}
+
+func TestLoadOrchHTTPInsecureSkipVerifyOverride(t *testing.T) {
+	t.Setenv("ORCH_HTTP_INSECURE_SKIP_VERIFY", "true")
+
+	cfg := Load()
+	if !cfg.OrchHTTPInsecureSkipVerify {
+		t.Fatal("OrchHTTPInsecureSkipVerify should be true")
+	}
+}
+
 func TestLoadServiceRegistryOverride(t *testing.T) {
 	t.Setenv("SERVICE_REGISTRY_REFRESH_ENABLED", "false")
 	t.Setenv("SERVICE_REGISTRY_ADDRESS", "0xabc")
