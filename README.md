@@ -27,9 +27,10 @@ updated on-chain URIs are probed even when the subgraph is stale.
 Set `ORCH_DISCOVERY_EXTRA_URIS` to always probe gateway orchs that advertise
 live-runner apps but are not yet in subgraph/ClickHouse/discover/service-registry sources.
 Set `ORCH_HTTP_INSECURE_SKIP_VERIFY=true` to skip TLS certificate verification on
-orch-facing HTTP only: registry manifest GETs and live-runner `GET {serviceURL}/discovery`
-(self-signed / hostname-mismatched orch certs are common). Other HTTP sources
-(subgraph, ClickHouse, discover API, pricing, remote-signer) still verify TLS normally.
+orch-facing HTTP: registry manifest GETs, live-runner `GET {serviceURL}/discovery`,
+and the discover API (`DISCOVER_API_URL`). Self-signed / hostname-mismatched
+certs are common. Other HTTP sources (subgraph, ClickHouse, pricing, remote-signer)
+still verify TLS normally.
 
 Dataset rows carry an explicit `service_type`:
 

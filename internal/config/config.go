@@ -52,7 +52,8 @@ type Config struct {
 	OrchDiscoveryMaxOrchestrators int
 	OrchDiscoveryExtraURIs        []string
 	// OrchHTTPInsecureSkipVerify skips TLS verification for orch-facing HTTP:
-	// registry manifest GETs and live-runner GET {serviceURL}/discovery.
+	// registry manifest GETs, live-runner GET {serviceURL}/discovery, and the
+	// discover API (DISCOVER_API_URL).
 	OrchHTTPInsecureSkipVerify bool
 
 	AIServiceRegistryRPCURL  string

@@ -96,7 +96,7 @@ DISCOVER_API_URL=https://naap-api.cloudspe.com/v1/discover/orchestrators
 PRICING_API_URL=
 REMOTE_SIGNER_URL=
 ORCH_DISCOVERY_MAX_ORCHESTRATORS=1000
-# Skip TLS on orch registry manifests and live-runner GET /discovery (self-signed orch certs).
+# Skip TLS on orch registry manifests, live-runner GET /discovery, and the discover API.
 ORCH_HTTP_INSECURE_SKIP_VERIFY=true
 # Live-runner gateway orchs not yet in subgraph/ClickHouse/discover/service-registry sources.
 # Keep this set in Railway shared/service variables for discoveryd.

@@ -79,7 +79,13 @@ func (a *DiscoverAdapter) FetchAll(ctx context.Context) (FetchResult, error) {
 		url = "https://naap-api.cloudspe.com/v1/discover/orchestrators"
 	}
 
-	body, err := httpGet(ctx, url, nil)
+	body, err := httpGetTimeoutTLS(
+		ctx,
+		url,
+		nil,
+		defaultHTTPTimeout,
+		a.cfg.OrchHTTPInsecureSkipVerify,
+	)
 	if err != nil {
 		return FetchResult{Stats: Stats{OK: false, DurationMs: elapsedMs(start), ErrorMessage: err.Error()}}, err
 	}
