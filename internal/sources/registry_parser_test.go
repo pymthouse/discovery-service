@@ -50,6 +50,36 @@ func TestParseRegistryManifestBodyV3(t *testing.T) {
 	}
 }
 
+func TestParseRegistryManifestBodyV3CapabilityWithoutOfferings(t *testing.T) {
+	body := []byte(`{
+		"eth_address":"0xabcdef0000000000000000000000000000000000",
+		"nodes":[{
+			"url":"https://worker.example.com/",
+			"capabilities":[{
+				"name":"openai:/v1/chat/completions",
+				"work_unit":"token"
+			}]
+		}]
+	}`)
+
+	rows, err := ParseRegistryManifestBody(body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(rows) != 1 {
+		t.Fatalf("got %d rows, want 1", len(rows))
+	}
+	if rows[0].WorkerURL != "https://worker.example.com" {
+		t.Fatalf("worker = %q", rows[0].WorkerURL)
+	}
+	if rows[0].CapabilityID != "openai:/v1/chat/completions" {
+		t.Fatalf("capability = %q", rows[0].CapabilityID)
+	}
+	if rows[0].WorkUnit != "token" || rows[0].OfferingID != "" {
+		t.Fatalf("unexpected offering row: %#v", rows[0])
+	}
+}
+
 func TestParseRegistryManifestBodyCoordinatorEnvelope(t *testing.T) {
 	body := []byte(`{
 		"manifest":{

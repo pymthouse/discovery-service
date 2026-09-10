@@ -56,7 +56,6 @@ func New(
 func (s *Server) Handler() http.Handler {
 	r := chi.NewRouter()
 	r.Use(middleware.RequestID)
-	r.Use(middleware.RealIP)
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
 
@@ -247,7 +246,7 @@ func rawCapabilityFilter(r *http.Request) []string {
 // (live-runner apps like "transcode/ffmpeg") and also the bare model name after
 // stripping a known pipeline prefix. Modules-only queries leave opaque IDs
 // untouched.
-func normalizeLegacyCaps(caps []string, serviceTypes []string) []string {
+func normalizeLegacyCaps(caps, serviceTypes []string) []string {
 	if !includesPipelineServiceType(serviceTypes) {
 		return caps
 	}
