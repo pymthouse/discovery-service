@@ -95,7 +95,7 @@ func orchHTTPClient(timeout time.Duration, insecureSkipVerify bool) *http.Client
 		Timeout: timeout,
 		Transport: &http.Transport{
 			TLSClientConfig: &tls.Config{
-				InsecureSkipVerify: true, //nolint:gosec // orch nodes often use self-signed certs
+				InsecureSkipVerify: true, //nolint:gosec // NOSONAR S4830,S5527 — ORCH_HTTP_INSECURE_SKIP_VERIFY; orch self-signed certs
 			},
 		},
 	}
