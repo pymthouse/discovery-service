@@ -3,7 +3,6 @@ package sources
 import (
 	"bytes"
 	"context"
-	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -38,7 +37,12 @@ func httpGetTimeoutTLS(
 	if timeout <= 0 {
 		timeout = defaultHTTPTimeout
 	}
-	client := orchHTTPClient(timeout, insecureSkipVerify)
+	var client *http.Client
+	if insecureSkipVerify {
+		client = orchDiscoveryHTTPClient(timeout)
+	} else {
+		client = &http.Client{Timeout: timeout}
+	}
 	res, err := client.Do(req)
 	if err != nil {
 		return nil, err
@@ -79,26 +83,6 @@ func httpPost(ctx context.Context, url string, headers map[string]string, body [
 		return nil, fmt.Errorf("HTTP %d: %s", res.StatusCode, truncate(string(out), 200))
 	}
 	return out, nil
-}
-
-// orchHTTPClient builds a client for orchestrator HTTP (manifests and /discovery).
-// When insecureSkipVerify is true, certificate verification is skipped so
-// self-signed or hostname-mismatched orch certs still work.
-func orchHTTPClient(timeout time.Duration, insecureSkipVerify bool) *http.Client {
-	if timeout <= 0 {
-		timeout = defaultHTTPTimeout
-	}
-	if !insecureSkipVerify {
-		return &http.Client{Timeout: timeout}
-	}
-	return &http.Client{
-		Timeout: timeout,
-		Transport: &http.Transport{
-			TLSClientConfig: &tls.Config{
-				InsecureSkipVerify: true, //nolint:gosec // NOSONAR S4830,S5527 — ORCH_HTTP_INSECURE_SKIP_VERIFY; orch self-signed certs
-			},
-		},
-	}
 }
 
 func parseCHRows(body []byte) ([]CHRow, error) {

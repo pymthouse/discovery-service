@@ -3,6 +3,7 @@ package sources
 import (
 	"bytes"
 	"context"
+	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -225,6 +226,23 @@ type ProbeOrchDiscoveryOptions struct {
 	InsecureSkipVerify bool
 }
 
+// orchDiscoveryHTTPClient builds a client for probing orchestrator /discovery.
+// Orchestrators commonly use self-signed or hostname-mismatched TLS certs, so
+// verification is skipped for this probe path only.
+func orchDiscoveryHTTPClient(timeout time.Duration) *http.Client {
+	if timeout <= 0 {
+		timeout = 5 * time.Second
+	}
+	return &http.Client{
+		Timeout: timeout,
+		Transport: &http.Transport{
+			TLSClientConfig: &tls.Config{
+				InsecureSkipVerify: true, //nolint:gosec // orch nodes often use self-signed certs
+			},
+		},
+	}
+}
+
 func httpGetOrchDiscovery(ctx context.Context, client *http.Client, url string) ([]byte, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
@@ -316,7 +334,10 @@ func ProbeOrchDiscovery(ctx context.Context, orchURIs []string, opts ProbeOrchDi
 	if concurrency <= 0 {
 		concurrency = 25
 	}
-	client := orchHTTPClient(timeout, opts.InsecureSkipVerify)
+	client := &http.Client{Timeout: timeout}
+	if opts.InsecureSkipVerify {
+		client = orchDiscoveryHTTPClient(timeout)
+	}
 
 	sem := make(chan struct{}, concurrency)
 	var wg sync.WaitGroup
